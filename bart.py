@@ -84,7 +84,7 @@ def main(args):
         print('MEDIUM PRECISION')
         torch.set_float32_matmul_precision('medium')
     config = BartConfig(num_labels=8)
-    expconfig = comet_ml.ExperimentConfig(disabled=True,
+    expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name,
                                           tags=['bart'])
     experiment = comet_ml.start(api_key=os.environ['COMET_API_KEY'],
