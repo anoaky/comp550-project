@@ -54,6 +54,7 @@ class BartForBiasClassification(nn.Module):
         loader = prep_dataset(loader)
         loader = BartSBFDataset(loader, tok)
         loader = DataLoader(loader, shuffle=shuffle, **dataloader_kwargs)
+        return loader
 
     def train_loader(self, tok, **dataloader_kwargs):
         return self.loader(tok, split='train', shuffle=True, **dataloader_kwargs)
