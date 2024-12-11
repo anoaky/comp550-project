@@ -102,7 +102,8 @@ def main(args):
         'batch_size': args.batch_size,
         'num_workers': args.num_workers,
         'drop_last': True,
-        'pin_memory': True
+        'pin_memory': True,
+        'prefetch_factor': 8
     }
 
     train_loader = model.train_loader(tokenizer, **dataloader_kwargs)
