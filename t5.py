@@ -14,7 +14,7 @@ from bart import SBFDataset
 def setup(world_size):
     os.environ['MASTER_ADDRESS'] = 'localhost'
     os.environ['MASTER_PORT'] = '12345'
-    dist.init_process_group('nccl', init_method=f'tcp://localhost:12345', world_size=world_size)
+    dist.init_process_group('nccl', init_method=f'file:///tmp/com', world_size=world_size)
     
 def cleanup():
     dist.destroy_process_group()
