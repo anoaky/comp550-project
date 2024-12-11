@@ -16,7 +16,6 @@ tok_kwargs = {
     'return_attention_mask': True
 }
 
-
 class BartSBFDataset(Dataset):
     def __init__(self, hf_data, tok):
         super().__init__()
@@ -39,6 +38,7 @@ class BartSBFDataset(Dataset):
 
 class BartForBiasClassification(nn.Module):
     def __init__(self, config: BartConfig, experiment, args, lr=1e-5):
+        super().__init__()
         self.bart = BartForSequenceClassification.from_pretrained(
             'facebook/bart-large', config=config)
         self.lr = lr
