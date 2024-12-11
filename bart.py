@@ -93,6 +93,7 @@ def main(args):
                                 experiment_config=expconfig)
     print('INITIALIZED EXPERIMENT')
     experiment.disable_mp()
+    experiment.log_parameters({'batch_size': args.batch_size, 'max_epochs': args.max_epochs})
     model = BartForBiasClassification(config, experiment, args, lr=1e-5)
     print('LOADED MODEL')
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
