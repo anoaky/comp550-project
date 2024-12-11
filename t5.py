@@ -4,7 +4,6 @@ import torch.nn as nn
 from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from torch.distributed.fsdp import FullyShardedDataParallel, CPUOffload
-from torch.distributed.fsdp.wrap import default_auto_wrap_policy
 import torch.multiprocessing as mp
 from transformers import T5Tokenizer, T5ForSequenceClassification, T5Config
 import os
