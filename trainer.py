@@ -43,7 +43,7 @@ class Trainer:
                         if idx % self.log_every == self.log_every - 1:
                             self.experiment.log_metrics({'loss': loss.item()},
                                                         prefix=model.base_name,
-                                                        step=idx,
+                                                        step=idx+1,
                                                         epoch=epoch)
                         t.set_postfix(loss=loss.item())
                         t.update()

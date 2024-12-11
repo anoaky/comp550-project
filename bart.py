@@ -16,7 +16,7 @@ tok_kwargs = {
     'return_attention_mask': True
 }
 
-class BartSBFDataset(Dataset):
+class SBFDataset(Dataset):
     def __init__(self, hf_data, tok):
         super().__init__()
         self.hf_data = hf_data
@@ -52,7 +52,7 @@ class BartForBiasClassification(nn.Module):
     def loader(self, tok, /, split, shuffle, **dataloader_kwargs):
         loader = load_dataset('allenai/social_bias_frames', split=split, trust_remote_code=True)
         loader = prep_dataset(loader)
-        loader = BartSBFDataset(loader, tok)
+        loader = SBFDataset(loader, tok)
         loader = DataLoader(loader, shuffle=shuffle, **dataloader_kwargs)
         return loader
 
