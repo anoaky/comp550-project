@@ -90,9 +90,12 @@ def main(args):
                                 workspace='anoaky',
                                 project_name='comp-550-project',
                                 experiment_config=expconfig)
+    print('INITIALIZED EXPERIMENT')
     experiment.disable_mp()
     model = BartForBiasClassification(config, experiment, args, lr=1e-5)
+    print('LOADED MODEL')
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
+    print('LOADED TOKENIZER')
 
     dataloader_kwargs = {
         'batch_size': args.batch_size,
@@ -103,8 +106,10 @@ def main(args):
 
     train_loader = model.train_loader(tokenizer, **dataloader_kwargs)
     val_loader = model.val_loader(tokenizer, **dataloader_kwargs)
+    print('LOADED DATA')
 
     trainer = Trainer(experiment, args.max_epochs, args.log_every)
+    print('BEGIN')
     trainer.fit(model, train_loader=train_loader, val_loader=val_loader)
     experiment.send_notification(args.experiment_name, status='finished')
     experiment.end()
