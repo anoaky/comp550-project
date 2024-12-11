@@ -11,10 +11,10 @@ from tqdm import tqdm
 from trainer import prep_dataset
 from bart import SBFDataset
 
-def setup(rank, world_size):
+def setup(world_size):
     os.environ['MASTER_ADDRESS'] = 'localhost'
     os.environ['MASTER_PORT'] = '12345'
-    dist.init_process_group('nccl', rank=rank, world_size=world_size)
+    dist.init_process_group('nccl', world_size=world_size)
     
 def cleanup():
     dist.destroy_process_group()
@@ -40,7 +40,7 @@ def shard_model(rank, model):
     return sharded_model, optim
 
 def fit(rank, world_size, model, max_epochs, train_loader: DataLoader):
-    setup(rank, world_size)
+    setup(world_size)
     with tqdm() as t:
         model, optimizer = shard_model(rank, model)
         for epoch in range(max_epochs):
@@ -65,6 +65,9 @@ class FSDPTrainer:
                  join=True)
         
 if __name__ == '__main__':
+    world_size = torch.cuda.device_count()
+    print(f'WORLD_SIZE: {world_size}')
+    setup(world_size)
     tokenizer = T5Tokenizer.from_pretrained('google-t5/t5-base')
     train_set = load_dataset('allenai/social_bias_frames', split='train', trust_remote_code=True)
     train_set = prep_dataset(train_set)
@@ -74,8 +77,7 @@ if __name__ == '__main__':
     
     config = T5Config(num_labels=8)
     model = T5Bias(config)
-    world_size = torch.cuda.device_count()
-    print(f'WORLD_SIZE: {world_size}')
+    
     trainer = FSDPTrainer(world_size)
     trainer.fit(model, 1, train_loader)
     cleanup()
