@@ -50,7 +50,7 @@ class BartForBiasClassification(nn.Module):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def loader(self, tok, /, split, shuffle, **dataloader_kwargs):
-        loader = load_dataset('allenai/social_bias_frames', split=split)
+        loader = load_dataset('allenai/social_bias_frames', split=split, trust_remote_code=True)
         loader = prep_dataset(loader)
         loader = BartSBFDataset(loader, tok)
         loader = DataLoader(loader, shuffle=shuffle, **dataloader_kwargs)
