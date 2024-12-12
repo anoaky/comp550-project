@@ -18,35 +18,32 @@ import lightning as L
 
 
 class T5Bias(L.LightningModule):
-    def __init__(self):
+    def __init__(self, config: T5Config):
         super().__init__()
         self.t5 = AutoModel.from_pretrained(
-            't5-3b', ignore_mismatched_sizes=True)
+            't5-3b', ignore_mismatched_sizes=True, config=config)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 64)
         self.fc3 = nn.Linear(64, 8)
         self.t5.train()
 
-    def forward(self, input_ids, attention_mask, /):
-        _, x = self.t5(input_ids, attention_mask=attention_mask,
-                       return_dict=False)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+    def forward(self, input_ids, attention_mask, labels, /):
+        x = self.t5(input_ids, 
+                       attention_mask=attention_mask,
+                       labels=labels)
         return x
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-5)
 
     def training_step(self, input_ids, attention_mask, y, /):
-        yh = self.forward(input_ids, attention_mask)
-        train_loss = F.binary_cross_entropy_with_logits(yh, y)
-        return train_loss
+        out = self.forward(input_ids, attention_mask)
+        return out.loss
 
     def validation_step(self, input_ids, attention_mask, y):
-        yh = self.forward(input_ids, attention_mask)
-        val_loss = F.binary_cross_entropy_with_logits(yh, y)
-        yh = torch.argmax(yh, dim=1)
+        out = self.forward(input_ids, attention_mask)
+        val_loss = out.loss
+        yh = torch.argmax(out.logits, dim=1)
         val_acc = torch.sum(y == yh).item() / (y.shape[0] * 1.0)
         return val_loss, val_acc
 
@@ -85,8 +82,9 @@ def main(args):
         'pin_memory': True,
         'prefetch_factor': 8
     }
-
-    model = T5Bias()
+    
+    config = T5Config(num_labels=8)
+    model = T5Bias(config)
     torch.compile(model)
     tokenizer = T5Tokenizer.from_pretrained('t5-base')
     train_loader = model.train_dataloader(tokenizer, **dataloader_kwargs)
