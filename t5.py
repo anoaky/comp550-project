@@ -33,8 +33,8 @@ class T5Bias(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-5)
 
-    def training_step(self, input_ids, attention_mask, y, /):
-        out = self.forward(input_ids, attention_mask)
+    def training_step(self, input_ids, attention_mask, labels, /):
+        out = self.forward(input_ids, attention_mask, labels)
         return out.loss
 
     def validation_step(self, input_ids, attention_mask, y):
