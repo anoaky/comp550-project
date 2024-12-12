@@ -75,7 +75,7 @@ class FSDPTrainer:
                 t.set_description(f'Training epoch {epoch}')
                 for idx, batch in enumerate(train_loader):
                     optimizer.zero_grad()
-                    loss = model(idx, *batch)
+                    loss = model.train_step(idx, *batch)
                     loss.backward()
                     optimizer.step()
                     if idx % 50 == 49:
