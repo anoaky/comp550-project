@@ -93,7 +93,7 @@ if __name__ == '__main__':
     experiment = comet_ml.start(api_key=os.environ['COMET_API_KEY'],
                                 workspace='anoaky',
                                 project_name='comp-550-project',
-                                config=expconfig)
+                                experiment_config=expconfig)
     experiment.disable_mp()
     experiment.log_parameters({'batch_size': 32, 'max_epochs': 10})
     world_size = torch.cuda.device_count()
