@@ -21,7 +21,7 @@ class T5Bias(L.LightningModule):
     def __init__(self):
         super().__init__()
         self.t5 = AutoModel.from_pretrained(
-            't5-11b', ignore_mismatched_sizes=True)
+            't5-3b', ignore_mismatched_sizes=True)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 64)
         self.fc3 = nn.Linear(64, 8)
@@ -70,7 +70,7 @@ class T5Bias(L.LightningModule):
 def main(args):
     expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name)
-    comet_cb = CometCallback(prefix='t5-11B',
+    comet_cb = CometCallback(prefix='t5-3B',
                              api_key=os.environ['COMET_API_KEY'],
                              workspace='anoaky',
                              project_name='comp-550-project',
