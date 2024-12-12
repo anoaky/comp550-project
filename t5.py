@@ -48,8 +48,10 @@ def shard_model(rank, model):
     optim = torch.optim.Adam(sharded_model.parameters(), lr=1e-5)
     return sharded_model, optim
                 
-def main(rank, world_size, experiment):
+def main(rank, world_size, experiment_key):
     setup(rank, world_size)
+    experiment = comet_ml.start(api_key=os.environ['COMET_API_KEY'],
+                                experiment_key=experiment_key)
     tokenizer = T5Tokenizer.from_pretrained('t5-base')
     train_set = load_dataset('allenai/social_bias_frames', split='train', trust_remote_code=True)
     train_set = prep_dataset(train_set)
@@ -96,10 +98,11 @@ if __name__ == '__main__':
                                 experiment_config=expconfig)
     experiment.disable_mp()
     experiment.log_parameters({'batch_size': 32, 'max_epochs': 10})
+    experiment.end()
     world_size = torch.cuda.device_count()
     print(f'WORLD_SIZE: {world_size}')
     mp.spawn(main,
-             args=(world_size, experiment),
+             args=(world_size,experiment.get_key()),
              nprocs=world_size,
              join=True)
     cleanup()
