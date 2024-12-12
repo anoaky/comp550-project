@@ -78,6 +78,8 @@ class FSDPTrainer:
                     loss = model(idx, *batch)
                     loss.backward()
                     optimizer.step()
+                    if idx % 50 == 49:
+                        print(f'batch {idx+1} loss {loss.item()}')
                     t.set_postfix(loss=loss.item())
                     t.update()
         
