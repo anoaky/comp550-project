@@ -11,6 +11,7 @@ from lightning.pytorch.utilities.model_summary import summarize
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
 def prep_dataset(ds: Dataset) -> Dataset:
     def replace_empty(row):
         if row['targetCategory'] == '':
@@ -18,11 +19,12 @@ def prep_dataset(ds: Dataset) -> Dataset:
         return row
     return ds.select_columns(['post', 'targetCategory']).map(replace_empty).class_encode_column('targetCategory')
 
+
 class FabricSummary:
-    def __init__(self, max_depth: int=1):
+    def __init__(self, max_depth: int = 1):
         self.max_depth = max_depth
-        
-    def print_summary(self, module: L.LightningModule):
+
+    def print_summary(self, *, module: L.LightningModule):
         model_summary = summarize(module, max_depth=self.max_depth)
         ModelSummary.summarize(model_summary._get_summary_data(),
                                model_summary.total_parameters,
@@ -30,30 +32,34 @@ class FabricSummary:
                                model_summary.model_size,
                                model_summary.total_training_modes)
 
+
 class CometCallback:
     def __init__(self, *, prefix, **experiment_kwargs):
         self.experiment = comet_ml.start(**experiment_kwargs)
         self.experiment.disable_mp()
         self.prefix = prefix
-        
+
     def log_metrics(self, *, epoch, step=None, **kwargs):
-        self.experiment.log_metrics(kwargs, prefix=self.prefix, step=step, epoch=epoch)
-        
+        self.experiment.log_metrics(
+            kwargs, prefix=self.prefix, step=step, epoch=epoch)
+
     def on_fit_end(self):
         self.experiment.end()
+
 
 class FabricTrainer:
     def __init__(self, fabric: L.Fabric, *, max_epochs: int, log_every: int):
         self.fabric = fabric
         self.max_epochs = max_epochs
         self.log_every = log_every
-        
+
     def fit(self, model: L.LightningModule, *, train_loader: DataLoader, val_loader: DataLoader):
-        self.fabric.call("print_summary")
+        self.fabric.call("print_summary", module=model)
         self.fabric.launch()
         optimizer = model.configure_optimizers()
         model, optimizer = self.fabric.setup(model, optimizer)
-        [train_loader, val_loader] = self.fabric.setup_dataloaders(train_loader, val_loader)
+        [train_loader, val_loader] = self.fabric.setup_dataloaders(
+            train_loader, val_loader)
         best_accuracy = 0.0
         t = tqdm()
         for epoch in range(self.max_epochs):
@@ -65,11 +71,12 @@ class FabricTrainer:
                 loss = model.training_step(*batch)
                 self.fabric.backward(loss)
                 optimizer.step()
-                
+
                 if idx % self.log_every == self.log_every - 1:
                     all_loss = self.fabric.all_reduce(loss)
                     if self.fabric.is_global_zero:
-                        self.fabric.call("log_metrics", epoch=epoch, step=idx, train_loss=all_loss.item())
+                        self.fabric.call(
+                            "log_metrics", epoch=epoch, step=idx, train_loss=all_loss.item())
                     t.set_postfix(loss=all_loss.item())
                 t.update()
             # validation
@@ -87,9 +94,11 @@ class FabricTrainer:
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
                 if self.fabric.is_global_zero:
-                    self.fabric.call("log_metrics", epoch=epoch, val_acc=accuracy)
+                    self.fabric.call(
+                        "log_metrics", epoch=epoch, val_acc=accuracy)
         t.close()
         self.fabric.call("on_fit_end")
+
 
 class Trainer:
     def __init__(self, experiment: comet_ml.Experiment, max_epochs, log_every):
