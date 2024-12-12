@@ -23,7 +23,7 @@ def cleanup():
 class T5Bias(nn.Module):
     def __init__(self, config: T5Config):
         super().__init__()
-        self.t5 = T5Model.from_pretrained('google-t5/t5-11b', config=config)
+        self.t5 = T5Model.from_pretrained('t5-11b', config=config)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 64)
         self.fc3 = nn.Linear(64, 8)
@@ -49,7 +49,7 @@ def shard_model(rank, model):
                 
 def main(rank, world_size):
     setup(rank, world_size)
-    tokenizer = T5Tokenizer.from_pretrained('google-t5/t5-base')
+    tokenizer = T5Tokenizer.from_pretrained('t5-base')
     train_set = load_dataset('allenai/social_bias_frames', split='train', trust_remote_code=True)
     train_set = prep_dataset(train_set)
     train_set = SBFDataset(train_set, tokenizer)
