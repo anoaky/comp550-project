@@ -34,17 +34,32 @@ class FabricSummary:
 
 
 class CometCallback:
-    def __init__(self, *, prefix, **experiment_kwargs):
-        self.experiment = comet_ml.start(**experiment_kwargs)
+    def __init__(self, *, prefix, experiment_config: comet_ml.ExperimentConfig = None, **experiment_kwargs):
+        self.experiment = comet_ml.start(experiment_config=experiment_config, **experiment_kwargs)
+        self.experiment_kwargs = experiment_kwargs
         self.experiment.disable_mp()
+        self.experiment_key = self.experiment.get_key()
+        self.running = True
         self.prefix = prefix
+    
+    def end(self):
+        self.experiment.end()
+        self.running = False
+    
+    def restart_comet(self):
+        self.experiment = comet_ml.start(experiment_key=self.experiment_key,
+                                         **self.experiment_kwargs)
+        self.experiment.disable_mp()
+        self.running = True
 
     def log_metrics(self, *, epoch, step=None, **kwargs):
+        if not self.running:
+            self.restart()
         self.experiment.log_metrics(
             kwargs, prefix=self.prefix, step=step, epoch=epoch)
 
     def on_fit_end(self):
-        self.experiment.end()
+        self.end()
 
 
 class FabricTrainer:
@@ -56,6 +71,7 @@ class FabricTrainer:
     def fit(self, model: L.LightningModule, *, train_loader: DataLoader, val_loader: DataLoader):
         self.fabric.call("print_summary", module=model)
         self.fabric.launch()
+        self.fabric.call("restart_comet")
         optimizer = model.configure_optimizers()
         model, optimizer = self.fabric.setup(model, optimizer)
         [train_loader, val_loader] = self.fabric.setup_dataloaders(

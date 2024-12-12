@@ -71,10 +71,12 @@ def main(args):
     expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name)
     comet_cb = CometCallback(prefix='t5-3B',
+                             experiment_config=expconfig,
                              api_key=os.environ['COMET_API_KEY'],
                              workspace='anoaky',
-                             project_name='comp-550-project',
-                             experiment_config=expconfig)
+                             project_name='comp-550-project')
+    
+    comet_cb.end()
     fabric_summary = FabricSummary()
     dataloader_kwargs = {
         'batch_size': args.batch_size,
