@@ -22,9 +22,6 @@ class T5Bias(L.LightningModule):
         super().__init__()
         self.t5 = AutoModel.from_pretrained(
             't5-3b', ignore_mismatched_sizes=True, config=config)
-        self.fc1 = nn.Linear(1024, 512)
-        self.fc2 = nn.Linear(512, 64)
-        self.fc3 = nn.Linear(64, 8)
         self.t5.train()
 
     def forward(self, input_ids, attention_mask, labels, /):
