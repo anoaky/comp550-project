@@ -23,7 +23,7 @@ def cleanup():
 class T5Bias(nn.Module):
     def __init__(self, config: T5Config):
         super().__init__()
-        self.t5 = T5Model.from_pretrained('t5-11b', config=config)
+        self.t5 = T5Model.from_pretrained('t5-11b', config=config, ignore_mismatched_sizes=True)
         self.fc1 = nn.Linear(1024, 512)
         self.fc2 = nn.Linear(512, 64)
         self.fc3 = nn.Linear(64, 8)
@@ -68,6 +68,7 @@ class FSDPTrainer:
         self.world_size = world_size
     def fit(self, model, optimizer, max_epochs, train_loader):
         with tqdm() as t:
+            model.train()
             for epoch in range(max_epochs):
                 train_loader.sampler.set_epoch(epoch)
                 t.reset(total=len(train_loader))
