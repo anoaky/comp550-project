@@ -43,7 +43,6 @@ class T5Bias(nn.Module):
     
 
 def shard_model(rank, model):
-    model = model.to(rank)
     sharded_model = FullyShardedDataParallel(model, cpu_offload=CPUOffload(offload_params=True))
     optim = torch.optim.Adam(sharded_model.parameters(), lr=1e-5)
     return sharded_model, optim
@@ -61,6 +60,7 @@ def main(rank, world_size, experiment_key):
     
     config = T5Config(num_labels=8)
     model = T5Bias(config)
+    model = model.to(f'cuda:{rank}')
     model, optimizer = shard_model(rank, model)
     
     trainer = FSDPTrainer(world_size)
