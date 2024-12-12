@@ -1,11 +1,12 @@
 import torch
 import torch.distributed as dist
 import torch.nn as nn
+import torch.nn.functional as F
 from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from torch.distributed.fsdp import FullyShardedDataParallel, CPUOffload
 import torch.multiprocessing as mp
-from transformers import T5Tokenizer, T5ForSequenceClassification, T5Config
+from transformers import T5Tokenizer, T5Config, T5Model
 import os
 from tqdm import tqdm
 from trainer import prep_dataset
@@ -22,15 +23,22 @@ def cleanup():
 class T5Bias(nn.Module):
     def __init__(self, config: T5Config):
         super().__init__()
-        self.t5 = T5ForSequenceClassification.from_pretrained('google-t5/t5-11b', config=config)
+        self.t5 = T5Model.from_pretrained('google-t5/t5-11b', config=config)
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 64)
+        self.fc3 = nn.Linear(64, 8)
     
     def forward(self, input_ids, attention_mask, labels):
-        out = self.t5(input_ids, attention_mask=attention_mask, labels=labels)
-        return out
+        _, x = self.t5(input_ids, attention_mask=attention_mask, labels=labels, return_dict=False)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
     
     def train_step(self, idx, input_ids, attention_mask, labels):
-        out = self.forward(input_ids, attention_mask, labels)
-        return out.loss
+        yh = self.forward(input_ids, attention_mask, labels)
+        loss = F.binary_cross_entropy_with_logits(yh, labels)
+        return loss
     
 
 def shard_model(rank, model):
