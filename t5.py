@@ -68,7 +68,7 @@ class T5Bias(L.LightningModule):
 
 
 def main(args):
-    expconfig = comet_ml.ExperimentConfig(disabled=True,
+    expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name)
     comet_cb = CometCallback(prefix='t5-11B',
                              api_key=os.environ['COMET_API_KEY'],
