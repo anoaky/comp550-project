@@ -86,9 +86,10 @@ class SBFTransformer(L.LightningModule):
         return out.loss
     
     def validation_step(self, input_ids, tgt_seq):
-        out = self.generate(input_ids)
+        out = self.generate(input_ids, output_logits=True)
         out_seq = out.sequences
-        loss = F.cross_entropy(out_seq, tgt_seq)
+        logits = torch.stack(out.logits, dim=1)
+        loss = F.cross_entropy(logits, tgt_seq)
         tgt_str = self.tokenizer.batch_decode(tgt_seq, # this needs to be a tensor, so we have to encode then decode it T.T
                                               skip_special_tokens=True,
                                               clean_up_tokenization_spaces=True)
