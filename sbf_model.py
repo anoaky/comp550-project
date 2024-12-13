@@ -88,6 +88,7 @@ class SBFTransformer(L.LightningModule):
     def validation_step(self, input_ids, tgt_seq):
         out = self.generate(input_ids)
         out_seq = out.sequences
+        loss = F.cross_entropy(out_seq, tgt_seq)
         tgt_str = self.tokenizer.batch_decode(tgt_seq, # this needs to be a tensor, so we have to encode then decode it T.T
                                               skip_special_tokens=True,
                                               clean_up_tokenization_spaces=True)
@@ -95,7 +96,7 @@ class SBFTransformer(L.LightningModule):
                                               skip_special_tokens=True,
                                               clean_up_tokenization_spaces=True)
         p, r, f1 = bertscore(tgt_str, out_str)
-        return p, r, f1
+        return loss, p, r, f1
     
     def train_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
         train_ds = load_dataset('allenai/social_bias_frames', 
@@ -144,7 +145,7 @@ class SBFTrainer:
                     all_loss = fabric.all_reduce(loss)
                     if fabric.is_global_zero:
                             fabric.call("log_metrics", 
-                                        loss=all_loss.item(),
+                                        train_loss=all_loss.item(),
                                         step=idx+1,
                                         epoch=epoch)
                     t.set_postfix(loss=all_loss.item())
@@ -156,12 +157,14 @@ class SBFTrainer:
                 for idx, batch in enumerate(val_loader):
                     input_ids = batch['post_ids']
                     tgt_seq = batch['stype_ids']
-                    p, r, f1 = model.validation_step(input_ids, tgt_seq)
+                    loss, p, r, f1 = model.validation_step(input_ids, tgt_seq)
+                    loss = fabric.all_reduce(loss)
                     p = fabric.all_reduce(p)
                     r = fabric.all_reduce(r)
                     f1 = fabric.all_reduce(f1)
                     if fabric.is_global_zero:
                             fabric.call("log_metrics",
+                                        val_loss=loss.item(),
                                         precision=p.item(),
                                         recall=r.item(),
                                         f1=f1.item(),
