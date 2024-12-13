@@ -34,30 +34,34 @@ class FabricSummary:
 
 
 class CometCallback:
-    def __init__(self, *, prefix, **experiment_kwargs):
-        self.experiment = comet_ml.start(**experiment_kwargs)
-        self.experiment.disable_mp()
-        self.experiment_key = self.experiment.get_key()
-        self.running = True
+    def __init__(self, *, prefix, experiment_key):
+        self.experiment_key = experiment_key
+        self.running = False
         self.prefix = prefix
     
     def end(self):
         self.experiment.end()
         self.running = False
     
-    def restart_comet(self):
+    def start(self):
+        if self.running:
+            return
         self.experiment = comet_ml.start(experiment_key=self.experiment_key, mode="get")
         self.experiment.disable_mp()
         self.running = True
 
     def log_metrics(self, *, epoch, step=None, **kwargs):
         if not self.running:
-            self.restart()
+            self.start()
         self.experiment.log_metrics(
             kwargs, prefix=self.prefix, step=step, epoch=epoch)
+    
+    def on_fit_start(self):
+        self.start()
 
     def on_fit_end(self):
         self.end()
+
 
 
 class FabricTrainer:

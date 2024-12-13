@@ -9,19 +9,45 @@ from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.fsdp import FullyShardedDataParallel, CPUOffload
 import torch.multiprocessing as mp
-from transformers import T5Tokenizer, T5Config, AutoModel
+from transformers import T5Tokenizer, T5Config, T5Model
 import os
 from tqdm import tqdm
 from trainer import prep_dataset, FabricTrainer, CometCallback, FabricSummary
 from bart import SBFDataset
 import lightning as L
 
+tok_kwargs = {
+    'padding': 'max_length',
+    'max_length': 256,
+    'truncation': True,
+    'return_tensors': 'pt',
+    'return_attention_mask': True
+}
+
+class T5Dataset(Dataset):
+    def __init__(self, hf_data, tok, /):
+        super().__init__()
+        self.hf_data = hf_data
+        self.tok = tok
+    
+    def __len__(self):
+        return len(self.hf_data)
+    
+    def __getitem__(self, index):
+        row = self.hf_data[index]
+        inputs = self.tok(row['post'], **tok_kwargs)
+        labels = self.tok(row['targetStereotype'])
+        
 
 class T5Bias(L.LightningModule):
     def __init__(self, config: T5Config):
         super().__init__()
-        self.t5 = AutoModel.from_pretrained(
-            't5-3b', ignore_mismatched_sizes=True, config=config)
+        self.t5 = T5Model.from_pretrained(
+            't5-3b')
+        self.dropout = nn.Dropout(0.5)
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 64)
+        self.fc3 = nn.Linear(64, 8)
         self.t5.train()
 
     def forward(self, input_ids, attention_mask, labels, /):
@@ -64,13 +90,14 @@ class T5Bias(L.LightningModule):
 def main(args):
     expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name)
+    experiment = comet_ml.start(workspace='anoaky',
+                                project_name='comp-550-project',
+                                experiment_config=expconfig)
+    experiment.disable_mp()
+    experiment_key = experiment.get_key()
+    experiment.end()
     comet_cb = CometCallback(prefix='t5-3B',
-                             experiment_config=expconfig,
-                             api_key=os.environ['COMET_API_KEY'],
-                             workspace='anoaky',
-                             project_name='comp-550-project')
-    
-    comet_cb.end()
+                             experiment_key=experiment_key)
     fabric_summary = FabricSummary()
     dataloader_kwargs = {
         'batch_size': args.batch_size,
