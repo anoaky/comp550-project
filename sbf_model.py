@@ -78,7 +78,8 @@ class SBFTransformer(L.LightningModule):
     def generate(self, input_ids, /) -> GenerateEncoderDecoderOutput:
         out = self.t5.generate(input_ids, 
                                return_dict_in_generate=True,
-                               num_return_sequences=1)
+                               num_return_sequences=1,
+                               output_logits=True)
         return out
     
     def training_step(self, input_ids, attn_mask, tgt_seq):
@@ -86,7 +87,7 @@ class SBFTransformer(L.LightningModule):
         return out.loss
     
     def validation_step(self, input_ids, tgt_seq):
-        out = self.generate(input_ids, output_logits=True)
+        out = self.generate(input_ids)
         out_seq = out.sequences
         logits = torch.stack(out.logits, dim=1)
         loss = F.cross_entropy(logits, tgt_seq)
