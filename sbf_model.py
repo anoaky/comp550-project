@@ -215,6 +215,7 @@ def main(args):
     
 if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
+    comet_ml.login()
     parser = ArgumentParser()
     parser.add_argument('-n', '--experiment_name', required=True, type=str)
     parser.add_argument('-s', '--seed', default=-1, type=int)
