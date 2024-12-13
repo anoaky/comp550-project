@@ -129,9 +129,7 @@ class SBFTrainer:
         torch.set_float32_matmul_precision('medium')
         if fabric.is_global_zero:
             fabric.call("print_summary", module=model)
-        model = fabric.setup_module(model, _reapply_compile=False)
-        optimizer = model.configure_optimizers()
-        optimizer = fabric.setup_optimizers(optimizer)
+        model, optimizer = fabric.setup(model, optimizer, _reapply_compile=False)
         [train_loader, val_loader] = fabric.setup_dataloaders(train_loader,
                                                               val_loader)
         t = tqdm()
@@ -203,6 +201,7 @@ def main(args):
     
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
     model = SBFTransformer(tokenizer)
+    model = torch.compile(model)
     train_loader, val_loader = model.train_dataloader(tokenizer, **dataloader_kwargs), model.val_dataloader(tokenizer, **dataloader_kwargs)
     fabric_summary = FabricSummary()
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
