@@ -123,8 +123,9 @@ class SBFTrainer:
         if self.fabric.is_global_zero:
             self.fabric.call("print_summary", module=model)
         self.fabric.launch()
+        model = self.fabric.setup_module(model, _reapply_compile=False)
         optimizer = model.configure_optimizers()
-        model, optimizer = self.fabric.setup(model, optimizer)
+        optimizer = self.fabric.setup_optimizers(optimizer)
         [train_loader, val_loader] = self.fabric.setup_dataloaders(train_loader,
                                                                    val_loader)
         t = tqdm()
