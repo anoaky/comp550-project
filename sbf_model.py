@@ -174,7 +174,7 @@ class SBFTrainer:
         fabric.call("on_fit_end")
 
 def main(args):
-    expconfig = comet_ml.ExperimentConfig(disabled=True,
+    expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name,
                                           parse_args=False)
     if 'EXPERIMENT_KEY' in os.environ:
