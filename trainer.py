@@ -52,6 +52,8 @@ class CometCallback:
 
     def on_fit_end(self):
         self.end()
+        self.experiment.send_notification(self.prefix,
+                                          status='finished')
 
 
 
