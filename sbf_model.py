@@ -65,6 +65,7 @@ class SBFTransformer(L.LightningModule):
     def __init__(self, tokenizer: T5Tokenizer):
         super().__init__()
         self.t5 = T5ForConditionalGeneration.from_pretrained('google-t5/t5-3b')
+        self.t5.train()
         self.tokenizer = tokenizer
     
     def configure_optimizers(self):
@@ -120,7 +121,6 @@ class SBFTrainer:
         
     def fit(self, model: L.LightningModule, train_loader, val_loader):
         self.fabric.call("print_summary", module=model)
-        self.fabric.call("on_fit_start")
         self.fabric.launch()
         optimizer = model.configure_optimizers()
         model, optimizer = self.fabric.setup(model, optimizer)
@@ -175,15 +175,16 @@ class SBFTrainer:
 def main(args):
     expconfig = comet_ml.ExperimentConfig(#disabled=True,
                                           name=args.experiment_name)
-    experiment = comet_ml.start(workspace='anoaky',
-                                project_name='comp-550-project',
-                                experiment_config=expconfig)
+    if 'EXPERIMENT_KEY' in os.environ:
+        experiment = comet_ml.start(experiment_key=os.environ['EXPERIMENT_KEY'])
+    else:
+        experiment = comet_ml.start(workspace='anoaky',
+                                    project_name='comp-550-project',
+                                    experiment_config=expconfig)
+        experiment_key = experiment.get_key()
+        os.environ['EXPERIMENT_KEY'] = experiment_key
     experiment.disable_mp()
-    experiment_key = experiment.get_key()
-    os.environ['EXPERIMENT_KEY'] = experiment_key
-    experiment.log_parameters({'batch_size': args.batch_size, 'deterministic': args.deterministic, 'seed': args.seed if args.deterministic else None})
-    experiment.end()
-    comet_cb = CometCallback(prefix='sbf-transformer')
+    comet_cb = CometCallback(experiment, prefix='sbf-transformer')
     dataloader_kwargs = {
         'batch_size': args.batch_size,
         'num_workers': args.num_workers,
@@ -201,6 +202,8 @@ def main(args):
                       loggers=[],
                       precision="bf16-mixed",
                       strategy="fsdp")
+    if fabric.is_global_zero:
+        experiment.log_parameters({'batch_size': args.batch_size, 'deterministic': args.deterministic, 'seed': args.seed if args.deterministic else None})
     if args.deterministic:
         fabric.seed_everything(args.seed,
                                workers=True)
