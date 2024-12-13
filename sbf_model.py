@@ -127,6 +127,7 @@ class SBFTrainer:
         self.log_every = log_every
         
     def fit(self, model: L.LightningModule, train_loader, val_loader):
+        torch.set_float32_matmul_precision('medium')
         if self.fabric.is_global_zero:
             self.fabric.call("print_summary", module=model)
         model = self.fabric.setup_module(model, _reapply_compile=False)
@@ -224,7 +225,6 @@ def main(args):
                   val_loader=val_loader)
     
 if __name__ == '__main__':
-    torch.set_float32_matmul_precision('medium')
     comet_ml.login()
     parser = ArgumentParser()
     parser.add_argument('-n', '--experiment_name', required=True, type=str)
