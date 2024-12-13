@@ -126,7 +126,7 @@ class SBFTrainer:
         self.max_epochs = max_epochs
         self.log_every = log_every
         
-    def fit(self, model: L.LightningModule, train_loader, val_loader):
+    def fit(self, model: L.LightningModule, train_loader, val_loader, /):
         torch.set_float32_matmul_precision('medium')
         if self.fabric.is_global_zero:
             self.fabric.call("print_summary", module=model)
@@ -221,8 +221,8 @@ def main(args):
                          log_every=args.log_every)
     fabric.launch(trainer.fit,
                   model,
-                  train_loader=train_loader,
-                  val_loader=val_loader)
+                  train_loader,
+                  val_loader)
     
 if __name__ == '__main__':
     comet_ml.login()
