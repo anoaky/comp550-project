@@ -220,7 +220,9 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--log_every', default=100, type=int)
     args = parser.parse_args()
     if args.seed < 0:
+        print("NON-DETERMINISTIC")
         args.deterministic = False
     else:
+        print("DETERMINISTIC")
         args.deterministic = True
     main(args)
