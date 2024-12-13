@@ -8,6 +8,7 @@ from tqdm import tqdm
 import lightning as L
 from lightning.pytorch.callbacks import ModelSummary
 from lightning.pytorch.utilities.model_summary import summarize
+import os
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -34,8 +35,7 @@ class FabricSummary:
 
 
 class CometCallback:
-    def __init__(self, *, prefix, experiment_key):
-        self.experiment_key = experiment_key
+    def __init__(self, prefix):
         self.running = False
         self.prefix = prefix
     
@@ -46,9 +46,16 @@ class CometCallback:
     def start(self):
         if self.running:
             return
-        self.experiment = comet_ml.start(experiment_key=self.experiment_key, mode="get")
+        assert 'EXPERIMENT_KEY' in os.environ
+        self.experiment = comet_ml.start(experiment_key=os.environ['EXPERIMENT_KEY'], mode="get")
         self.experiment.disable_mp()
         self.running = True
+    
+    def log_parameters(self, **params):
+        if not self.running:
+            self.start()
+        self.experiment.log_metrics(params,
+                                    prefix=self.prefix)
 
     def log_metrics(self, *, epoch, step=None, **kwargs):
         if not self.running:

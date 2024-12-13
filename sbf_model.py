@@ -14,6 +14,7 @@ from typing import List
 from trainer import CometCallback, FabricSummary
 from tqdm import tqdm
 from argparse import ArgumentParser
+import os
 
 MAX_LENGTH = 512
 
@@ -25,12 +26,6 @@ tok_kwargs = {
     'return_attention_mask': True,
     'add_special_tokens': True,
 }
-
-class SBFEncodedInput:
-    def __init__(self, *, post_ids, post_attn, stype_ids):
-        self.post_ids = post_ids
-        self.post_attn = post_attn
-        self.stype_ids = stype_ids
 
 class SBFPreprocessed(Dataset):
     def __init__(self, hf_data: datasets.Dataset, tok: T5Tokenizer):
@@ -52,15 +47,17 @@ class SBFPreprocessed(Dataset):
     def __len__(self):
         return len(self.hf_data)
     
-    def __getitem__(self, idx) -> SBFEncodedInput:
+    def __getitem__(self, idx):
         row = self.hf_data[idx]
         tok_post = self.tok.encode_plus(row['post'],
                                         **tok_kwargs)
         tok_stype = self.tok.encode_plus(row['targetStereotype'],
                                          **tok_kwargs)
-        return SBFEncodedInput(post_ids=tok_post.input_ids,
-                               post_attn=tok_post.attention_mask,
-                               stype_ids=tok_stype.input_ids)
+        return {
+            'post_ids': tok_post.input_ids.view(-1),
+            'post_attn': tok_post.attention_mask.view(-1),
+            'stype_ids': tok_stype.input_ids.view(-1)
+        }
 
 class SBFTransformer(L.LightningModule):
     base_name = 'sbf-transformer'
@@ -136,18 +133,19 @@ class SBFTrainer:
             model.train()
             for idx, batch in enumerate(train_loader):
                 optimizer.zero_grad()
-                input_ids = batch.post_ids
-                attn_mask = batch.post_attn
-                stype = batch.stype_ids
+                input_ids = batch['post_ids']
+                attn_mask = batch['post_attn']
+                stype = batch['stype_ids']
                 loss = model.training_step(input_ids, attn_mask, stype)
                 self.fabric.backward(loss)
                 optimizer.step()
                 if idx % self.log_every == self.log_every - 1:
                     all_loss = self.fabric.all_reduce(loss)
-                    self.fabric.call("log_metrics", 
-                                     loss=all_loss.item(),
-                                     step=idx+1,
-                                     epoch=epoch)
+                    if self.fabric.is_global_zero:
+                        self.fabric.call("log_metrics", 
+                                        loss=all_loss.item(),
+                                        step=idx+1,
+                                        epoch=epoch)
                     t.set_postfix(loss=all_loss.item())
                 t.update()
             t.reset(total=len(val_loader))
@@ -155,17 +153,18 @@ class SBFTrainer:
             model.eval()
             with torch.no_grad():
                 for idx, batch in enumerate(val_loader):
-                    input_ids = batch.post_ids
-                    tgt_seq = batch.stype_ids
+                    input_ids = batch['post_ids']
+                    tgt_seq = batch['stype_ids']
                     p, r, f1 = model.validation_step(input_ids, tgt_seq)
                     p = self.fabric.all_reduce(p)
                     r = self.fabric.all_reduce(r)
                     f1 = self.fabric.all_reduce(f1)
-                    self.fabric.call("log_metrics",
-                                     precision=p.item(),
-                                     recall=r.item(),
-                                     f1=f1.item(),
-                                     epoch=epoch)
+                    if self.fabric.is_global_zero:
+                        self.fabric.call("log_metrics",
+                                        precision=p.item(),
+                                        recall=r.item(),
+                                        f1=f1.item(),
+                                        epoch=epoch)
                     t.set_postfix(p=p.item(),
                                   r=r.item(),
                                   f1=f1.item())
@@ -181,9 +180,10 @@ def main(args):
                                 experiment_config=expconfig)
     experiment.disable_mp()
     experiment_key = experiment.get_key()
+    os.environ['EXPERIMENT_KEY'] = experiment_key
+    experiment.log_parameters({'batch_size': args.batch_size, 'deterministic': args.deterministic, 'seed': args.seed if args.deterministic else None})
     experiment.end()
-    comet_cb = CometCallback(prefix=SBFTransformer.base_name,
-                             experiment_key=experiment_key)
+    comet_cb = CometCallback(prefix='sbf-transformer')
     dataloader_kwargs = {
         'batch_size': args.batch_size,
         'num_workers': args.num_workers,
@@ -211,6 +211,7 @@ def main(args):
     trainer.fit(model, train_loader=train_loader, val_loader=val_loader)
     
 if __name__ == '__main__':
+    torch.set_float32_matmul_precision('medium')
     parser = ArgumentParser()
     parser.add_argument('-n', '--experiment_name', required=True, type=str)
     parser.add_argument('-s', '--seed', default=-1, type=int)
