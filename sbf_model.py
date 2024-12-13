@@ -16,11 +16,11 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 import os
 
-MAX_LENGTH = 512
+MAX_LENGTH = 256
 
 tok_kwargs = {
     'padding': 'max_length',
-    'max_length': 512,
+    'max_length': MAX_LENGTH,
     'truncation': True,
     'return_tensors': 'pt',
     'return_attention_mask': True,
@@ -128,7 +128,6 @@ class SBFTrainer:
     def fit(self, model: L.LightningModule, train_loader, val_loader):
         if self.fabric.is_global_zero:
             self.fabric.call("print_summary", module=model)
-        self.fabric.launch()
         model = self.fabric.setup_module(model, _reapply_compile=False)
         optimizer = model.configure_optimizers()
         optimizer = self.fabric.setup_optimizers(optimizer)
@@ -218,7 +217,10 @@ def main(args):
     trainer = SBFTrainer(fabric,
                          max_epochs=args.max_epochs,
                          log_every=args.log_every)
-    trainer.fit(model, train_loader=train_loader, val_loader=val_loader)
+    fabric.launch(trainer.fit,
+                  model,
+                  train_loader=train_loader,
+                  val_loader=val_loader)
     
 if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
