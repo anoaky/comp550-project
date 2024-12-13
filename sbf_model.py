@@ -135,7 +135,7 @@ class SBFTrainer:
             t.set_description(f'Training epoch {epoch}')
             model.train()
             with fabric.init_tensor():
-                running_loss = torch.tensor(0)
+                running_loss = torch.tensor(0.0)
             for idx, batch in enumerate(train_loader):
                 optimizer.zero_grad()
                 input_ids = batch['post_ids']
@@ -156,10 +156,10 @@ class SBFTrainer:
             model.eval()
             with torch.no_grad():
                 with fabric.init_tensor():
-                    precision = torch.tensor(0)
-                    recall = torch.tensor(0)
-                    f1_score = torch.tensor(0)
-                    val_loss = torch.tensor(0)
+                    precision = torch.tensor(0.0)
+                    recall = torch.tensor(0.0)
+                    f1_score = torch.tensor(0.0)
+                    val_loss = torch.tensor(0.0)
                 for idx, batch in enumerate(val_loader):
                     input_ids = batch['post_ids']
                     tgt_seq = batch['stype_ids']
