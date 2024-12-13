@@ -121,20 +121,19 @@ class SBFTransformer(L.LightningModule):
         return val_loader
     
 class SBFTrainer:
-    def __init__(self, fabric: L.Fabric, /, *, max_epochs: int, log_every: int):
-        self.fabric = fabric
+    def __init__(self, *, max_epochs: int, log_every: int):
         self.max_epochs = max_epochs
         self.log_every = log_every
         
-    def fit(self, model: L.LightningModule, train_loader, val_loader, /):
+    def fit(self, fabric: L.Fabric, model: L.LightningModule, train_loader, val_loader, /):
         torch.set_float32_matmul_precision('medium')
-        if self.fabric.is_global_zero:
-            self.fabric.call("print_summary", module=model)
-        model = self.fabric.setup_module(model, _reapply_compile=False)
+        if fabric.is_global_zero:
+            fabric.call("print_summary", module=model)
+        model = fabric.setup_module(model, _reapply_compile=False)
         optimizer = model.configure_optimizers()
-        optimizer = self.fabric.setup_optimizers(optimizer)
-        [train_loader, val_loader] = self.fabric.setup_dataloaders(train_loader,
-                                                                   val_loader)
+        optimizer = fabric.setup_optimizers(optimizer)
+        [train_loader, val_loader] = fabric.setup_dataloaders(train_loader,
+                                                              val_loader)
         t = tqdm()
         for epoch in range(self.max_epochs):
             t.reset(total=len(train_loader))
@@ -146,12 +145,12 @@ class SBFTrainer:
                 attn_mask = batch['post_attn']
                 stype = batch['stype_ids']
                 loss = model.training_step(input_ids, attn_mask, stype)
-                self.fabric.backward(loss)
+                fabric.backward(loss)
                 optimizer.step()
                 if idx % self.log_every == self.log_every - 1:
-                    all_loss = self.fabric.all_reduce(loss)
-                    if self.fabric.is_global_zero:
-                        self.fabric.call("log_metrics", 
+                    all_loss = fabric.all_reduce(loss)
+                    if fabric.is_global_zero:
+                            fabric.call("log_metrics", 
                                         loss=all_loss.item(),
                                         step=idx+1,
                                         epoch=epoch)
@@ -165,11 +164,11 @@ class SBFTrainer:
                     input_ids = batch['post_ids']
                     tgt_seq = batch['stype_ids']
                     p, r, f1 = model.validation_step(input_ids, tgt_seq)
-                    p = self.fabric.all_reduce(p)
-                    r = self.fabric.all_reduce(r)
-                    f1 = self.fabric.all_reduce(f1)
-                    if self.fabric.is_global_zero:
-                        self.fabric.call("log_metrics",
+                    p = fabric.all_reduce(p)
+                    r = fabric.all_reduce(r)
+                    f1 = fabric.all_reduce(f1)
+                    if fabric.is_global_zero:
+                            fabric.call("log_metrics",
                                         precision=p.item(),
                                         recall=r.item(),
                                         f1=f1.item(),
@@ -179,7 +178,7 @@ class SBFTrainer:
                                   f1=f1.item())
                     t.update()
         t.close()
-        self.fabric.call("on_fit_end")
+        fabric.call("on_fit_end")
 
 def main(args):
     expconfig = comet_ml.ExperimentConfig(#disabled=True,
