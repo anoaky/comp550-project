@@ -1,10 +1,9 @@
 import comet_ml
-import accelerate
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from transformers import T5Tokenizer, AutoModel, T5Config, T5ForConditionalGeneration, BitsAndBytesConfig
+from transformers import T5Tokenizer, AutoModel, T5Config, T5ForConditionalGeneration
 from transformers.generation import GenerateEncoderDecoderOutput
 from datasets import load_dataset
 import datasets
@@ -65,18 +64,12 @@ class SBFTransformer(L.LightningModule):
     
     def __init__(self, tokenizer: T5Tokenizer):
         super().__init__()
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
-        )
-        self.t5 = AutoModel.from_pretrained('google-t5/t5-3b', 
-                                            quantization_config=bnb_config)
+        self.t5 = T5ForConditionalGeneration.from_pretrained('google-t5/t5-large')
         self.t5.train()
         self.tokenizer = tokenizer
     
     def configure_optimizers(self):
-        return torch.optim.Adam(self.t5.parameters(), lr=1e-5)
+        return torch.optim.Adam(self.parameters(), lr=1e-5)
     
     def forward(self, input_ids, attention_mask, tgt, /):
         out = self.t5(input_ids, attention_mask=attention_mask, labels=tgt)
@@ -126,7 +119,6 @@ class SBFTrainer:
         self.log_every = log_every
         
     def fit(self, fabric: L.Fabric, model: L.LightningModule, train_loader, val_loader, /):
-        torch.set_float32_matmul_precision('medium')
         if fabric.is_global_zero:
             fabric.call("print_summary", module=model)
         optimizer = model.configure_optimizers()
@@ -181,7 +173,8 @@ class SBFTrainer:
 
 def main(args):
     expconfig = comet_ml.ExperimentConfig(disabled=True,
-                                          name=args.experiment_name)
+                                          name=args.experiment_name,
+                                          parse_args=False)
     if 'EXPERIMENT_KEY' in os.environ:
         experiment = comet_ml.start(experiment_key=os.environ['EXPERIMENT_KEY'])
     else:
@@ -202,8 +195,7 @@ def main(args):
     
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
     model = SBFTransformer(tokenizer)
-    model = torch.compile(model,
-                          mode="max-autotune")
+    model = torch.compile(model)
     train_loader, val_loader = model.train_dataloader(tokenizer, **dataloader_kwargs), model.val_dataloader(tokenizer, **dataloader_kwargs)
     fabric_summary = FabricSummary()
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
@@ -225,6 +217,7 @@ def main(args):
     
 if __name__ == '__main__':
     comet_ml.login()
+    torch.set_float32_matmul_precision('medium')
     parser = ArgumentParser()
     parser.add_argument('-n', '--experiment_name', required=True, type=str)
     parser.add_argument('-s', '--seed', default=-1, type=int)
