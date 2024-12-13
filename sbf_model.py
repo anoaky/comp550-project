@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from transformers import T5Tokenizer, AutoModel, T5Config, T5ForConditionalGeneration
+from transformers import T5Tokenizer, AutoModel, T5Config, T5ForConditionalGeneration, BitsAndBytesConfig
 from transformers.generation import GenerateEncoderDecoderOutput
 from datasets import load_dataset
 import datasets
@@ -64,7 +64,13 @@ class SBFTransformer(L.LightningModule):
     
     def __init__(self, tokenizer: T5Tokenizer):
         super().__init__()
-        self.t5 = T5ForConditionalGeneration.from_pretrained('google-t5/t5-3b')
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        self.t5 = AutoModel.from_pretrained('google-t5/t5-3b', 
+                                            quantization_config=bnb_config)
         self.t5.train()
         self.tokenizer = tokenizer
     
