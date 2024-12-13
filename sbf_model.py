@@ -203,8 +203,7 @@ def main(args):
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
     model = SBFTransformer(tokenizer)
     model = torch.compile(model,
-                          mode="max-autotune",
-                          options={'triton.cudagraphs': True})
+                          mode="max-autotune")
     train_loader, val_loader = model.train_dataloader(tokenizer, **dataloader_kwargs), model.val_dataloader(tokenizer, **dataloader_kwargs)
     fabric_summary = FabricSummary()
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
