@@ -215,8 +215,7 @@ def main(args):
         fabric.seed_everything(args.seed,
                                workers=True)
         torch.backends.cudnn.benchmark = False
-    trainer = SBFTrainer(fabric,
-                         max_epochs=args.max_epochs,
+    trainer = SBFTrainer(max_epochs=args.max_epochs,
                          log_every=args.log_every)
     fabric.launch(trainer.fit,
                   model,
