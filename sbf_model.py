@@ -134,6 +134,8 @@ class SBFTrainer:
             t.reset(total=len(train_loader))
             t.set_description(f'Training epoch {epoch}')
             model.train()
+            with fabric.init_tensor():
+                running_loss = torch.tensor(0)
             for idx, batch in enumerate(train_loader):
                 optimizer.zero_grad()
                 input_ids = batch['post_ids']
@@ -141,39 +143,43 @@ class SBFTrainer:
                 stype = batch['stype_ids']
                 loss = model.training_step(input_ids, attn_mask, stype)
                 fabric.backward(loss)
+                running_loss += loss
                 optimizer.step()
-                if idx % self.log_every == self.log_every - 1:
-                    all_loss = fabric.all_reduce(loss)
-                    if fabric.is_global_zero:
-                            fabric.call("log_metrics", 
-                                        train_loss=all_loss.item(),
-                                        step=idx+1,
-                                        epoch=epoch)
-                    t.set_postfix(loss=all_loss.item())
                 t.update()
+            avg_loss = fabric.all_reduce(running_loss)
+            if fabric.is_global_zero:
+                fabric.call("log_metrics", 
+                            train_loss=avg_loss.item(),
+                            epoch=epoch)
             t.reset(total=len(val_loader))
             t.set_description(f'Validation epoch {epoch}')
             model.eval()
             with torch.no_grad():
+                with fabric.init_tensor():
+                    precision = torch.tensor(0)
+                    recall = torch.tensor(0)
+                    f1_score = torch.tensor(0)
+                    val_loss = torch.tensor(0)
                 for idx, batch in enumerate(val_loader):
                     input_ids = batch['post_ids']
                     tgt_seq = batch['stype_ids']
                     loss, p, r, f1 = model.validation_step(input_ids, tgt_seq)
-                    loss = fabric.all_reduce(loss)
-                    p = fabric.all_reduce(p)
-                    r = fabric.all_reduce(r)
-                    f1 = fabric.all_reduce(f1)
-                    if fabric.is_global_zero:
-                            fabric.call("log_metrics",
-                                        val_loss=loss.item(),
-                                        precision=p.item(),
-                                        recall=r.item(),
-                                        f1=f1.item(),
-                                        epoch=epoch)
-                    t.set_postfix(p=p.item(),
-                                  r=r.item(),
-                                  f1=f1.item())
+                    precision += p
+                    recall += r
+                    f1_score += f1
+                    val_loss += loss
                     t.update()
+                precision = fabric.all_reduce(precision)
+                recall = fabric.all_reduce(recall)
+                f1_score = fabric.all_reduce(f1_score)
+                val_loss = fabric.all_reduce(val_loss)
+                if fabric.is_global_zero:
+                    fabric.call("log_metrics",
+                                val_loss=val_loss.item(),
+                                precision=precision.item(),
+                                recall=recall.item(),
+                                f1=f1_score.item(),
+                                epoch=epoch)
         t.close()
         fabric.call("on_fit_end")
 
