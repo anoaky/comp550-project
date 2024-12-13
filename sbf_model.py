@@ -120,7 +120,8 @@ class SBFTrainer:
         self.log_every = log_every
         
     def fit(self, model: L.LightningModule, train_loader, val_loader):
-        self.fabric.call("print_summary", module=model)
+        if self.fabric.is_global_zero:
+            self.fabric.call("print_summary", module=model)
         self.fabric.launch()
         optimizer = model.configure_optimizers()
         model, optimizer = self.fabric.setup(model, optimizer)
@@ -196,7 +197,6 @@ def main(args):
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
     model = SBFTransformer(tokenizer)
     train_loader, val_loader = model.train_dataloader(tokenizer, **dataloader_kwargs), model.val_dataloader(tokenizer, **dataloader_kwargs)
-    model = torch.compile(model)
     fabric_summary = FabricSummary()
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
                       loggers=[],
