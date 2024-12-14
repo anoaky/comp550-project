@@ -78,8 +78,7 @@ class SBFTransformer(L.LightningModule):
     def generate(self, input_ids, /) -> GenerateEncoderDecoderOutput:
         out = self.t5.generate(input_ids, 
                                return_dict_in_generate=True,
-                               num_return_sequences=1,
-                               output_logits=True)
+                               num_return_sequences=1)
         return out
     
     def training_step(self, input_ids, attn_mask, tgt_seq):
@@ -89,6 +88,18 @@ class SBFTransformer(L.LightningModule):
     def validation_step(self, input_ids, attention_mask, tgt):
         out = self.forward(input_ids, attention_mask=attention_mask, labels=tgt)
         return out.loss
+    
+    def test_step(self, input_ids, tgt_seqs):
+        out = self.generate(input_ids)
+        out_seqs = out.sequences
+        tgt_strs = self.tokenizer.batch_decode(tgt_seqs,
+                                               skip_special_tokens=True,
+                                               clean_up_tokenization_spaces=True)
+        out_strs = self.tokenizer.batch_decode(out_seqs,
+                                               skip_special_tokens=True,
+                                               clean_up_tokenization_spaces=True)
+        p, r, f1 = bertscore(tgt_strs, out_strs)
+        return p, r, f1
     
     def train_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
         train_ds = load_dataset('allenai/social_bias_frames', 
@@ -106,20 +117,29 @@ class SBFTransformer(L.LightningModule):
         val_loader = DataLoader(val_set, shuffle=False, **kwargs)
         return val_loader
     
+    def test_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
+        test_ds = load_dataset('allenai/social_bias_frames', 
+                                split='test', 
+                                trust_remote_code=True)
+        test_set = SBFPreprocessed(test_ds, tokenizer)
+        test_loader = DataLoader(test_set, shuffle=False, **kwargs)
+        return test_loader
+    
 class SBFTrainer:
     def __init__(self, *, max_epochs: int, log_every: int):
         self.max_epochs = max_epochs
         self.log_every = log_every
         
-    def fit(self, fabric: L.Fabric, model: L.LightningModule, train_loader, val_loader, /):
+    def fit(self, fabric: L.Fabric, model: L.LightningModule, *, train_loader, val_loader, test_loader):
         if fabric.is_global_zero:
             fabric.call("print_summary", module=model)
         optimizer = model.configure_optimizers()
         model, optimizer = fabric.setup(model, 
                                         optimizer, 
                                         _reapply_compile=False)
-        [train_loader, val_loader] = fabric.setup_dataloaders(train_loader,
-                                                              val_loader)
+        [train_loader, val_loader, test_loader] = fabric.setup_dataloaders(train_loader,
+                                                                           val_loader,
+                                                                           test_loader)
         t = tqdm()
         for epoch in range(self.max_epochs):
             t.reset(total=len(train_loader))
@@ -160,6 +180,30 @@ class SBFTrainer:
                     fabric.call("log_metrics",
                                 val_loss=val_loss.item(),
                                 epoch=epoch)
+        t.reset(total=len(test_loader))
+        t.set_description(f'Testing')
+        model.eval()
+        with torch.no_grad():
+            with fabric.init_tensor():
+                precision = torch.tensor(0.0)
+                recall = torch.tensor(0.0)
+                f1_score = torch.tensor(0.0)
+            for idx, batch in enumerate(test_loader):
+                input_ids = batch['post_ids']
+                tgt_seqs = batch['stype_ids']
+                p, r, f1 = model.test_step(input_ids, tgt_seqs)
+                precision += p
+                recall += r
+                f1_score += f1
+                t.update()
+            precision = fabric.all_reduce(precision)
+            recall = fabric.all_reduce(recall)
+            f1_score = fabric.all_reduce(f1_score)
+            if fabric.is_global_zero:
+                fabric.call("log_metrics",
+                            precision=precision.item(),
+                            recall=recall.item(),
+                            f1=f1_score.item())
         t.close()
         fabric.call("on_fit_end")
 
@@ -187,7 +231,9 @@ def main(args):
     
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
     model = SBFTransformer(tokenizer)
-    train_loader, val_loader = model.train_dataloader(tokenizer, **dataloader_kwargs), model.val_dataloader(tokenizer, **dataloader_kwargs)
+    train_loader, val_loader, test_loader = (model.train_dataloader(tokenizer, **dataloader_kwargs), 
+                                             model.val_dataloader(tokenizer, **dataloader_kwargs),
+                                             model.test_dataloader(tokenizer, **dataloader_kwargs))
     fabric_summary = FabricSummary()
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
                       loggers=[],
@@ -203,8 +249,9 @@ def main(args):
                          log_every=args.log_every)
     fabric.launch(trainer.fit,
                   model,
-                  train_loader,
-                  val_loader)
+                  train_loader=train_loader,
+                  val_loader=val_loader,
+                  test_loader=test_loader)
     
 if __name__ == '__main__':
     comet_ml.login()
