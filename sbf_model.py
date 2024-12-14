@@ -8,6 +8,7 @@ from transformers.generation import GenerateEncoderDecoderOutput
 from datasets import load_dataset
 import datasets
 import lightning as L
+from lightning.fabric.strategies.fsdp import FSDPStrategy
 from sentence_transformers import SentenceTransformer
 from bert_score import score as bertscore
 from typing import List
@@ -16,6 +17,8 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 import evaluate
 import os
+import torch.distributed as dist
+import torch.distributed.fsdp
 
 MAX_LENGTH = 256
 
@@ -262,10 +265,13 @@ def main(args):
                                              model.val_dataloader(tokenizer, **dataloader_kwargs),
                                              model.test_dataloader(tokenizer, **dataloader_kwargs))
     fabric_summary = FabricSummary()
+    strategy = FSDPStrategy(cpu_offload=True,
+                            mixed_precision=torch.distributed.fsdp.MixedPrecision(param_dtype=torch.bfloat16),
+                            state_dict_type='full')
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
                       loggers=[],
                       precision="bf16-mixed",
-                      strategy="fsdp")
+                      strategy=strategy)
     if fabric.is_global_zero:
         experiment.log_parameters({'batch_size': args.batch_size, 'deterministic': args.deterministic, 'seed': args.seed if args.deterministic else None})
     if args.deterministic:
