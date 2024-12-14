@@ -86,7 +86,7 @@ class SBFTransformer(L.LightningModule):
         return out.loss
     
     def validation_step(self, input_ids, attention_mask, tgt):
-        out = self.forward(input_ids, attention_mask=attention_mask, labels=tgt)
+        out = self.forward(input_ids, attention_mask, tgt)
         return out.loss
     
     def test_step(self, input_ids, tgt_seqs):
