@@ -265,11 +265,10 @@ def main(args):
                                              model.val_dataloader(tokenizer, **dataloader_kwargs),
                                              model.test_dataloader(tokenizer, **dataloader_kwargs))
     fabric_summary = FabricSummary()
-    strategy = FSDPStrategy(cpu_offload=True)
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
                       loggers=[],
                       precision="bf16-mixed",
-                      strategy=strategy)
+                      strategy="fsdp")
     if fabric.is_global_zero:
         experiment.log_parameters({'batch_size': args.batch_size, 'deterministic': args.deterministic, 'seed': args.seed if args.deterministic else None})
     if args.deterministic:
