@@ -197,46 +197,42 @@ class SBFTrainer:
                                 epoch=epoch)
         fabric.barrier()
         fabric.save(f't5-test-1-{model.trained_epochs}.ckpt', state)
-        t.reset(total=len(test_loader))
-        t.set_description(f'Testing')
-        model.eval()
-        with torch.no_grad():
-            preds = []
-            refs = []
-            for idx, batch in enumerate(test_loader):
-                input_ids = batch['post_ids']
-                tgt_seqs = batch['stype_ids']
-                out_seqs = model.test_step(input_ids)
-                if idx == 0 or idx == 10:
-                    fabric.print(out_seqs.shape)
-                seq_length = out_seqs.size(1)
-                out_seqs = F.pad(out_seqs, (0, MAX_LENGTH - seq_length), 'constant', tokenizer.pad_token_id)
-                if idx == 0 or idx == 10:
-                    fabric.print(out_seqs.shape)
-                preds.append(out_seqs)
-                refs.append(tgt_seqs)
-                t.update()
-            preds = torch.cat(preds, dim=0)
-            refs = torch.cat(refs, dim=0)
-            preds = fabric.all_gather(preds).view(-1, MAX_LENGTH)
-            refs = fabric.all_gather(refs).view(-1, MAX_LENGTH)
-            if fabric.is_global_zero:
-                preds = tokenizer.batch_decode(preds,
-                                               skip_special_tokens=True,
-                                               clean_up_tokenization_spaces=True)
-                refs = tokenizer.batch_decode(refs,
-                                              skip_special_tokens=True,
-                                              clean_up_tokenization_spaces=True)
-                refs = [[s] for s in refs]
-                bleu = evaluate.load("bleu")
-                results = bleu.compute(predictions=preds,
-                                       referenes=refs)
-                bleu_score = results['bleu']
-                precisions = torch.tensor(results['precisions'])
-                avg_precision = torch.mean(precisions)
-                fabric.call("log_metrics",
-                            precision=avg_precision.item(),
-                            bleu=bleu_score)
+        # t.reset(total=len(test_loader))
+        # t.set_description(f'Testing')
+        # model.eval()
+        # with torch.no_grad():
+        #     preds = []
+        #     refs = []
+        #     for idx, batch in enumerate(test_loader):
+        #         input_ids = batch['post_ids']
+        #         tgt_seqs = batch['stype_ids']
+        #         out_seqs = model.test_step(input_ids)
+        #         seq_length = out_seqs.size(1)
+        #         out_seqs = F.pad(out_seqs, (0, MAX_LENGTH - seq_length), 'constant', tokenizer.pad_token_id)
+        #         preds.append(out_seqs)
+        #         refs.append(tgt_seqs)
+        #         t.update()
+            
+        #     if fabric.is_global_zero:
+        #         preds = tokenizer.batch_decode(preds,
+        #                                        skip_special_tokens=True,
+        #                                        clean_up_tokenization_spaces=True)
+        #         refs = tokenizer.batch_decode(refs,
+        #                                       skip_special_tokens=True,
+        #                                       clean_up_tokenization_spaces=True)
+        #         refs = [[s] for s in refs]
+        #         bleu = evaluate.load("bleu")
+        #         results = bleu.compute(predictions=preds,
+        #                                referenes=refs)
+        #         bleu_score = results['bleu']
+        #         precisions = torch.tensor(results['precisions'])
+        #         avg_precision = torch.mean(precisions)
+        #         fabric.call("log_metrics",
+        #                     precision=avg_precision.item(),
+        #                     bleu=bleu_score)
+        print("Secondary process waiting for evaluation.")
+        fabric.barrier()
+        print("Evaluation complete.")
         t.close()
         fabric.call("on_fit_end")
 
