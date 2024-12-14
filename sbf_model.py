@@ -255,6 +255,7 @@ def main(args):
                          log_every=args.log_every)
     fabric.launch(trainer.fit,
                   model,
+                  tokenizer,
                   train_loader=train_loader,
                   val_loader=val_loader,
                   test_loader=test_loader)
