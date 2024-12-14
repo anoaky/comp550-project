@@ -207,6 +207,10 @@ class SBFTrainer:
                 out_seqs = model.test_step(input_ids)
                 if idx == 0 or idx == 10:
                     fabric.print(out_seqs.shape)
+                seq_length = out_seqs.size(1)
+                out_seqs = F.pad(out_seqs, (0, 0, 0, MAX_LENGTH - seq_length), 'constant', tokenizer.pad_token_id)
+                if idx == 0 or idx == 10:
+                    fabric.print(out_seqs.shape)
                 preds.append(out_seqs)
                 refs.append(tgt_seqs)
                 t.update()
