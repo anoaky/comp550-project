@@ -21,7 +21,7 @@ import torch.distributed as dist
 import torch.distributed.fsdp
 
 MAX_LENGTH = 256
-PROMPT = ""
+PROMPT = "Identify the stereotype: "
 
 tok_kwargs = {
     'padding': 'max_length',
@@ -54,7 +54,8 @@ class SBFPreprocessed(Dataset):
     
     def __getitem__(self, idx):
         row = self.hf_data[idx]
-        tok_post = self.tok.encode_plus(row['post'],
+        post = PROMPT + row['post']
+        tok_post = self.tok.encode_plus(post,
                                         **tok_kwargs)
         tok_stype = self.tok.encode_plus(row['targetStereotype'],
                                          **tok_kwargs)
