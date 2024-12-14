@@ -106,7 +106,7 @@ class SBFTransformer(L.LightningModule):
     
     def val_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
         val_ds = load_dataset('allenai/social_bias_frames', 
-                                split='train', 
+                                split='validation', 
                                 trust_remote_code=True)
         val_set = SBFPreprocessed(val_ds, tokenizer)
         val_loader = DataLoader(val_set, shuffle=False, **kwargs)
