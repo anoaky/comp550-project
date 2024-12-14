@@ -35,6 +35,8 @@ def main(args):
                 train_loader=train_loader,
                 val_loader=val_loader,)
     experiment.end()
+    experiment.send_notification(args.experiment_name,
+                                 status='finished')
     model.push_to_hub('anoaky/sbf-bart-offensive',
                       branch=args.branch_name)
 
