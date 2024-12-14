@@ -13,7 +13,7 @@ from transformers import T5Tokenizer, T5Config, T5Model
 import os
 from tqdm import tqdm
 from trainer import prep_dataset, FabricTrainer, CometCallback, FabricSummary
-from bart import SBFDataset
+from old_bart import SBFDataset
 import lightning as L
 
 tok_kwargs = {
