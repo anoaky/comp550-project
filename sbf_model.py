@@ -98,7 +98,9 @@ class SBFTransformer(L.LightningModule):
         out_strs = self.tokenizer.batch_decode(out_seqs,
                                                skip_special_tokens=True,
                                                clean_up_tokenization_spaces=True)
-        p, r, f1 = bertscore(tgt_strs, out_strs)
+        p, r, f1 = bertscore(tgt_strs, 
+                             out_strs,
+                             model_type='microsoft/deberta-xlarge-mnli')
         return p, r, f1
     
     def train_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
