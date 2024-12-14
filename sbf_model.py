@@ -265,8 +265,7 @@ def main(args):
                                              model.val_dataloader(tokenizer, **dataloader_kwargs),
                                              model.test_dataloader(tokenizer, **dataloader_kwargs))
     fabric_summary = FabricSummary()
-    strategy = FSDPStrategy(cpu_offload=True,
-                            state_dict_type='full')
+    strategy = FSDPStrategy(cpu_offload=True)
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
                       loggers=[],
                       precision="bf16-mixed",
