@@ -17,6 +17,8 @@ def main(args):
                                 project_name='comp-550-project',
                                 experiment_config=expconf)
     experiment.disable_mp()
+    experiment.send_notification(args.experiment_name,
+                                 status='started')
     model = BartOffensive()
     trainer = SBFTrainer(max_epochs=args.max_epochs,
                          step_every=args.step_every,
@@ -29,11 +31,16 @@ def main(args):
         'prefetch_factor': 2,
     }
     train_loader, val_loader, test_loader = model.dataloaders(tokenizer, **dataloader_kwargs)
-    trainer.fit(model,
-                device,
-                label_key='offensiveYN',
-                train_loader=train_loader,
-                val_loader=val_loader,)
+    try:
+        trainer.fit(model,
+                    device,
+                    label_key='offensiveYN',
+                    train_loader=train_loader,
+                    val_loader=val_loader,)
+    except:
+        experiment.send_notification(args.experiment_name,
+                                     status='failed')
+        return
     experiment.end()
     experiment.send_notification(args.experiment_name,
                                  status='finished')
