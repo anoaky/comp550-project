@@ -65,12 +65,12 @@ class SBFPreprocessed(Dataset):
             'stype_ids': tok_stype.input_ids.view(-1)
         }
 
-class SBFTransformer(L.LightningModule):
+class SBFT5(L.LightningModule):
     base_name = 'sbf-transformer'
     
-    def __init__(self, tokenizer: T5Tokenizer):
+    def __init__(self, config: T5Config, tokenizer: T5Tokenizer):
         super().__init__()
-        self.t5 = T5ForConditionalGeneration.from_pretrained('google-t5/t5-large')
+        self.t5 = T5ForConditionalGeneration(config)
         self.t5.train()
         self.tokenizer = tokenizer
     
@@ -266,8 +266,22 @@ def main(args):
         'prefetch_factor': 8
     }
     
+    hp = {
+        'd_model': 512,
+        'd_kv': 128,
+        'd_ff': 2048,
+        'num_layers': 8,
+        'num_heads': 8,
+        'relative_attention_num_buckets': 32,
+        'relative_attention_max_distance': 64,
+        'dropout_rate': 0.1,
+        'layer_norm_eps': 1e-6,
+        'feed_forward_proj': 'gated-gelu',
+    }
+    config = T5Config(**hp)
+    
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
-    model = SBFTransformer(tokenizer)
+    model = SBFT5(config, tokenizer)
     train_loader, val_loader, test_loader = (model.train_dataloader(tokenizer, **dataloader_kwargs), 
                                              model.val_dataloader(tokenizer, **dataloader_kwargs),
                                              model.test_dataloader(tokenizer, **dataloader_kwargs))
@@ -278,6 +292,7 @@ def main(args):
                       strategy="fsdp")
     if fabric.is_global_zero:
         experiment.log_parameters({'batch_size': args.batch_size, 'deterministic': args.deterministic, 'seed': args.seed if args.deterministic else None})
+        experiment.log_parameters(hp)
     if args.deterministic:
         fabric.seed_everything(args.seed,
                                workers=True)
