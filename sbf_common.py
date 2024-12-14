@@ -1,22 +1,20 @@
 import comet_ml
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import datasets
-import lightning as L
 import typing
 from torch.utils.data import Dataset, DataLoader
-from transformers import (BartTokenizer, BartForSequenceClassification,
-                          BertTokenizer, BertForSequenceClassification,
-                          T5Tokenizer, T5ForSequenceClassification
+from transformers import (BartTokenizer,
+                          BertTokenizer,
+                          T5Tokenizer, 
+                          AutoModelForSequenceClassification,
                           )
 from datasets import load_dataset
+from tqdm import tqdm
+from huggingface_hub import PyTorchModelHubMixin
 
 MAX_LENGTH = 256
-HF_PATH = 'allenai/social_bias_frames'
-
-type ProjectModel = typing.Union[BertForSequenceClassification | BartForSequenceClassification | T5ForSequenceClassification]
-type ProjectTokenizer = typing.Union[BertTokenizer | BartTokenizer | T5Tokenizer]
+HF_DS = 'allenai/social_bias_frames'
 
 tok_kwargs = {
     'padding': 'max_length',
@@ -85,38 +83,30 @@ class SBFPreprocessed(Dataset):
             'category': category,
         }
         
-class SBFModel(L.LightningModule):
+class SBFModel(nn.Module, PyTorchModelHubMixin):
     def __init__(self, 
-                 model: typing.Union[BertForSequenceClassification 
-                                     | BartForSequenceClassification 
-                                     | T5ForSequenceClassification],
-                 /,
-                 *,
-                 lr: float=1e-4):
-        self.model = model
-        self.lr = lr
+                 model_path: str,
+                 base_name: str):
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        self.base_name = base_name
         self.model.train()
         
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+    def forward(self, ids, attns, labels):
+        return self.model(ids, attention_mask=attns, labels=labels)
         
     def training_step(self, 
-                      batch: typing.Dict[str, torch.LongTensor],
-                      label_key: str,
-                      /,
+                      batch: typing.List[torch.LongTensor],
                       ) -> torch.FloatTensor:
-        ids = batch['ids']
-        attns = batch['attn']
-        labels = batch[label_key]
-        out = self.model.forward(ids, attention_mask=attns, labels=labels)
+        ids = batch[0]
+        attns = batch[1]
+        labels = batch[2]
+        out = self.forward(ids, attention_mask=attns, labels=labels)
         return out.loss
     
     def validation_step(self, 
-                        batch: typing.Dict[str, torch.LongTensor],
-                        label_key: str,
-                        /,
+                        batch: typing.List[torch.LongTensor],
                         ) -> torch.FloatTensor:
-        return self.training_step(batch, label_key) # TODO
+        return self.training_step(batch) # TODO
     
     def test_step(self,
                   batch: typing.Dict[str, torch.LongTensor],
@@ -126,7 +116,7 @@ class SBFModel(L.LightningModule):
         ids = batch['ids']
         attns = batch['attn']
         labels = batch[label_key]
-        out = self.model.forward(ids, attention_mask=attns, labels=labels)
+        out = self.forward(ids, attention_mask=attns, labels=labels)
         return out.logits
     
     def get_loader(self, 
@@ -136,10 +126,15 @@ class SBFModel(L.LightningModule):
                    split: str,
                    shuffle: bool,
                    **kwargs) -> DataLoader:
-        hf_data = load_dataset(HF_PATH, split=split, trust_remote_code=True)
+        hf_data = load_dataset(HF_DS, split=split, trust_remote_code=True)
         hf_set = SBFPreprocessed(hf_data, tokenizer)
         hf_loader = DataLoader(hf_set, shuffle=shuffle, **kwargs)
         return hf_loader
+    
+    def dataloaders(self, tokenizer, **kwargs):
+        return (self.train_dataloader(tokenizer, **kwargs),
+                self.val_dataloader(tokenizer, **kwargs),
+                self.test_dataloader(tokenizer, **kwargs))
     
     def train_dataloader(self, tokenizer, **kwargs):
         return self.get_loader(tokenizer, split='train', shuffle=True, **kwargs)
@@ -150,28 +145,74 @@ class SBFModel(L.LightningModule):
     def test_dataloader(self, tokenizer, **kwargs):
         return self.get_loader(tokenizer, split='test', shuffle=False, **kwargs)
     
-class SBFTrainer(L.Fabric):
+class SBFTrainer:
     def __init__(self,
                  *,
                  max_epochs: int,
-                 **kwargs,
+                 step_every: int,
+                 experiment: comet_ml.Experiment,
                  ):
-        super().__init__(**kwargs)
         self.max_epochs = max_epochs
+        self.step_every = step_every
+        self.experiment = experiment
         
-    def run(self, 
+    def move_all(device, *args):
+        for i in len(args):
+            args[i] = args[i].to(device)
+        return args
+        
+    def fit(self, 
             model: SBFModel,
+            device: str,
             *,
+            label_key: str,
             train_loader: DataLoader,
             val_loader: DataLoader,
-            test_loader: DataLoader,
             ):
         optimizer = model.configure_optimizers()
-        model, optimizer = self.setup(model, optimizer)
-        [train_loader, val_loader, test_loader] = self.setup_dataloaders(train_loader,
-                                                                         val_loader,
-                                                                         test_loader)
-        state = {
-            'model': model,
-            'optimizer': optimizer,
-        }
+        model = model.to(device)
+        t = tqdm()
+        for epoch in range(self.max_epochs):
+            train_len = len(train_loader)
+            val_len = len(val_loader)
+            t.reset(total=train_len)
+            t.set_description(f'Training epoch {epoch}')
+            model.train()
+            running_loss = torch.tensor(0.0, device=device)
+            for idx, batch in enumerate(train_loader):
+                batch = [
+                    batch['ids'].to(device),
+                    batch['attn'].to(device),
+                    batch[label_key].to(device),
+                ]
+                loss = model.training_step(batch, label_key)
+                running_loss = running_loss + loss
+                acc_norm = torch.min(torch.tensor([4, train_len - idx])) # this accounts for number of batches not evenly dividing step_every
+                loss = loss / acc_norm
+                loss.backward()
+                
+                if (idx + 1) % self.step_every == 0 or (idx + 1) == train_len:
+                    optimizer.step()
+                    optimizer.zero_grad()
+                t.update()
+            train_loss = running_loss / train_len
+            self.experiment.log_metrics({'train_loss': train_loss.item()},
+                                        prefix=model.base_name,
+                                        epoch=epoch)
+            
+            model.eval()
+            running_loss = torch.tensor(0.0, device=device)
+            t.reset(total=val_len)
+            t.set_description(f'Validation epoch {epoch}')
+            with torch.no_grad():
+                for batch in val_loader:
+                    batch = [
+                        batch['ids'].to(device),
+                        batch['attn'].to(device),
+                        batch[label_key].to(device),
+                    ]
+                    loss = model.validation_step(batch)
+                    running_loss = running_loss + loss
+                    
+                    t.update()
+        t.clear()

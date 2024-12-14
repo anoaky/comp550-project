@@ -1,4 +1,4 @@
-torch~=2.4.0
+torch~=2.5.0
 torchaudio
 torchvision
 transformers==4.47.0
@@ -6,8 +6,4 @@ comet-ml==3.47.4
 tqdm==4.67.1
 datasets==3.2.0
 sentencepiece==0.2.0
-lightning==2.4.0
-torchmetrics==1.6.0
-sentence-transformers==3.3.1
-bert-score==0.3.13
-evaluate==0.4.3
+huggingface_hub
