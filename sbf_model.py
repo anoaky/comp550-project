@@ -54,8 +54,7 @@ class SBFPreprocessed(Dataset):
     
     def __getitem__(self, idx):
         row = self.hf_data[idx]
-        post = PROMPT + row['post']
-        tok_post = self.tok.encode_plus(post,
+        tok_post = self.tok.encode_plus(row['post'],
                                         **tok_kwargs)
         tok_stype = self.tok.encode_plus(row['targetStereotype'],
                                          **tok_kwargs)
@@ -277,10 +276,12 @@ def main(args):
         'dropout_rate': 0.1,
         'layer_norm_eps': 1e-6,
         'feed_forward_proj': 'gated-gelu',
+        'prefix': 'Identify the stereotype: ',
     }
-    config = T5Config(**hp)
+    
     
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    config = T5Config.from_pretrained('t5-large', **hp) # pretrained config ! not the weights
     model = SBFT5(config, tokenizer)
     train_loader, val_loader, test_loader = (model.train_dataloader(tokenizer, **dataloader_kwargs), 
                                              model.val_dataloader(tokenizer, **dataloader_kwargs),
