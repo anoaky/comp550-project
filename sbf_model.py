@@ -205,11 +205,13 @@ class SBFTrainer:
                 input_ids = batch['post_ids']
                 tgt_seqs = batch['stype_ids']
                 out_seqs = model.test_step(input_ids)
+                if idx == 0 or idx == 10:
+                    fabric.print(out_seqs.shape)
                 preds.append(out_seqs)
                 refs.append(tgt_seqs)
                 t.update()
-            preds = torch.cat(preds, dim=1)
-            refs = torch.cat(refs, dim=1)
+            preds = torch.cat(preds, dim=0)
+            refs = torch.cat(refs, dim=0)
             preds = fabric.all_gather(preds).view(-1, MAX_LENGTH)
             refs = fabric.all_gather(refs).view(-1, MAX_LENGTH)
             if fabric.is_global_zero:
