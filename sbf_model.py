@@ -68,6 +68,7 @@ class SBFTransformer(L.LightningModule):
         self.t5 = T5ForConditionalGeneration.from_pretrained('google-t5/t5-large')
         self.t5.train()
         self.tokenizer = tokenizer
+        self.trained_epochs = 0
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
@@ -124,7 +125,15 @@ class SBFTrainer:
         self.max_epochs = max_epochs
         self.log_every = log_every
         
-    def fit(self, fabric: L.Fabric, model: L.LightningModule, tokenizer: T5Tokenizer, *, train_loader, val_loader, test_loader):
+    def fit(self, 
+            fabric: L.Fabric, 
+            model: L.LightningModule, 
+            tokenizer: T5Tokenizer, 
+            *, 
+            train_loader, 
+            val_loader, 
+            test_loader,
+            load_path=None):
         if fabric.is_global_zero:
             fabric.call("print_summary", module=model)
         optimizer = model.configure_optimizers()
@@ -134,8 +143,15 @@ class SBFTrainer:
         [train_loader, val_loader, test_loader] = fabric.setup_dataloaders(train_loader,
                                                                            val_loader,
                                                                            test_loader)
+        state = {
+            'model': model,
+            'optimizer': optimizer
+        }
+        if load_path is not None:
+            fabric.load(load_path, state) 
         t = tqdm()
         for epoch in range(self.max_epochs):
+            model.current_epoch += 1
             t.reset(total=len(train_loader))
             t.set_description(f'Training epoch {epoch}')
             model.train()
@@ -176,6 +192,7 @@ class SBFTrainer:
                                 val_loss=val_loss.item(),
                                 epoch=epoch)
         fabric.barrier()
+        fabric.save(f'~/t5-test-1-{model.current_epoch}.ckpt', state)
         t.reset(total=len(test_loader))
         t.set_description(f'Testing')
         model.eval()
