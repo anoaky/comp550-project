@@ -151,7 +151,7 @@ class SBFTrainer:
             fabric.load(load_path, state) 
         t = tqdm()
         for epoch in range(self.max_epochs):
-            model.current_epoch += 1
+            model.trained_epochs += 1
             t.reset(total=len(train_loader))
             t.set_description(f'Training epoch {epoch}')
             model.train()
@@ -192,7 +192,7 @@ class SBFTrainer:
                                 val_loss=val_loss.item(),
                                 epoch=epoch)
         fabric.barrier()
-        fabric.save(f'~/t5-test-1-{model.current_epoch}.ckpt', state)
+        fabric.save(f'~/t5-test-1-{model.trained_epochs}.ckpt', state)
         t.reset(total=len(test_loader))
         t.set_description(f'Testing')
         model.eval()
