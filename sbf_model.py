@@ -121,9 +121,8 @@ class SBFTransformer(L.LightningModule):
         return test_loader
     
 class SBFTrainer:
-    def __init__(self, *, max_epochs: int, log_every: int):
+    def __init__(self, *, max_epochs: int):
         self.max_epochs = max_epochs
-        self.log_every = log_every
         
     def fit(self, 
             fabric: L.Fabric, 
@@ -236,6 +235,11 @@ def main(args):
                                           parse_args=False)
     if 'EXPERIMENT_KEY' in os.environ:
         experiment = comet_ml.start(experiment_key=os.environ['EXPERIMENT_KEY'])
+    elif args.existing_experiment:
+        experiment = comet_ml.start(experiment_key=args.experiment_key)
+    elif args.no_experiment:
+        dummyconfig = comet_ml.ExperimentConfig(disabled=True)
+        experiment = comet_ml.start(experiment_config=dummyconfig)
     else:
         experiment = comet_ml.start(workspace='anoaky',
                                     project_name='comp-550-project',
@@ -268,26 +272,33 @@ def main(args):
         fabric.seed_everything(args.seed,
                                workers=True)
         torch.backends.cudnn.benchmark = False
-    trainer = SBFTrainer(max_epochs=args.max_epochs,
-                         log_every=args.log_every)
+    trainer = SBFTrainer(max_epochs=args.max_epochs)
     fabric.launch(trainer.fit,
                   model,
                   tokenizer,
                   train_loader=train_loader,
                   val_loader=val_loader,
-                  test_loader=test_loader)
+                  test_loader=test_loader,
+                  load_path=args.load_path)
     
 if __name__ == '__main__':
     comet_ml.login()
     torch.set_float32_matmul_precision('medium')
     parser = ArgumentParser()
-    parser.add_argument('-n', '--experiment_name', required=True, type=str)
+    excl_group = parser.add_mutually_exclusive_group(required=True)
+    excl_group.add_argument('-n', '--experiment_name', default=None, type=str)
+    excl_group.add_argument('-k', '--experiment_key', default=None, type=str)
+    excl_group.add_argument('--no_experiment', action="store_true")
     parser.add_argument('-s', '--seed', default=-1, type=int)
     parser.add_argument('-b', '--batch_size', default=64, type=int)
     parser.add_argument('-e', '--max_epochs', default=10, type=int)
     parser.add_argument('-w', '--num_workers', default=0, type=int)
-    parser.add_argument('-l', '--log_every', default=100, type=int)
+    parser.add_argument('-l', '--load_path', default=None, type=str)
     args = parser.parse_args()
+    if args.experiment_key is not None:
+        args.existing_experiment = True
+    else:
+        args.existing_experiment = False
     if args.seed < 0:
         print("NON-DETERMINISTIC")
         args.deterministic = False
