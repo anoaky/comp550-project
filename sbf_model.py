@@ -14,6 +14,7 @@ from typing import List
 from trainer import CometCallback, FabricSummary
 from tqdm import tqdm
 from argparse import ArgumentParser
+import evaluate
 import os
 
 MAX_LENGTH = 256
@@ -89,19 +90,10 @@ class SBFTransformer(L.LightningModule):
         out = self.forward(input_ids, attention_mask, tgt)
         return out.loss
     
-    def test_step(self, input_ids, tgt_seqs):
+    def test_step(self, input_ids):
         out = self.generate(input_ids)
         out_seqs = out.sequences
-        tgt_strs = self.tokenizer.batch_decode(tgt_seqs,
-                                               skip_special_tokens=True,
-                                               clean_up_tokenization_spaces=True)
-        out_strs = self.tokenizer.batch_decode(out_seqs,
-                                               skip_special_tokens=True,
-                                               clean_up_tokenization_spaces=True)
-        p, r, f1 = bertscore(tgt_strs, 
-                             out_strs,
-                             model_type='microsoft/deberta-xlarge-mnli')
-        return p, r, f1
+        return out_seqs
     
     def train_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
         train_ds = load_dataset('allenai/social_bias_frames', 
@@ -132,7 +124,7 @@ class SBFTrainer:
         self.max_epochs = max_epochs
         self.log_every = log_every
         
-    def fit(self, fabric: L.Fabric, model: L.LightningModule, *, train_loader, val_loader, test_loader):
+    def fit(self, fabric: L.Fabric, model: L.LightningModule, tokenizer: T5Tokenizer, *, train_loader, val_loader, test_loader):
         if fabric.is_global_zero:
             fabric.call("print_summary", module=model)
         optimizer = model.configure_optimizers()
@@ -164,6 +156,7 @@ class SBFTrainer:
                 fabric.call("log_metrics", 
                             train_loss=avg_loss.item(),
                             epoch=epoch)
+            fabric.barrier()
             t.reset(total=len(val_loader))
             t.set_description(f'Validation epoch {epoch}')
             model.eval()
@@ -182,30 +175,41 @@ class SBFTrainer:
                     fabric.call("log_metrics",
                                 val_loss=val_loss.item(),
                                 epoch=epoch)
+        fabric.barrier()
         t.reset(total=len(test_loader))
         t.set_description(f'Testing')
         model.eval()
         with torch.no_grad():
-            with fabric.init_tensor():
-                precision = torch.tensor(0.0)
-                recall = torch.tensor(0.0)
-                f1_score = torch.tensor(0.0)
+            preds = []
+            refs = []
             for idx, batch in enumerate(test_loader):
                 input_ids = batch['post_ids']
                 tgt_seqs = batch['stype_ids']
-                p, r, f1 = model.test_step(input_ids, tgt_seqs)
-                precision += p
-                recall += r
-                f1_score += f1
+                out_seqs = model.test_step(input_ids)
+                preds.append(out_seqs)
+                refs.append(tgt_seqs)
                 t.update()
-            precision = fabric.all_reduce(precision)
-            recall = fabric.all_reduce(recall)
-            f1_score = fabric.all_reduce(f1_score)
+            preds = torch.cat(preds, dim=0)
+            refs = torch.cat(refs, dim=0)
+            preds = fabric.all_gather(preds).view(-1, MAX_LENGTH)
+            refs = fabric.all_gather(refs).view(-1, MAX_LENGTH)
             if fabric.is_global_zero:
+                preds = tokenizer.batch_decode(preds,
+                                               skip_special_tokens=True,
+                                               clean_up_tokenization_spaces=True)
+                refs = tokenizer.batch_decode(refs,
+                                              skip_special_tokens=True,
+                                              clean_up_tokenization_spaces=True)
+                refs = [[s] for s in refs]
+                bleu = evaluate.load("bleu")
+                results = bleu.compute(predictions=preds,
+                                       referenes=refs)
+                bleu_score = results['bleu']
+                precisions = torch.tensor(results['precisions'])
+                avg_precision = torch.mean(precisions)
                 fabric.call("log_metrics",
-                            precision=precision.item(),
-                            recall=recall.item(),
-                            f1=f1_score.item())
+                            precision=avg_precision.item(),
+                            bleu=bleu_score)
         t.close()
         fabric.call("on_fit_end")
 
