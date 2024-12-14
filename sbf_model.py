@@ -69,7 +69,7 @@ class SBFTransformer(L.LightningModule):
         self.tokenizer = tokenizer
     
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-5)
+        return torch.optim.Adam(self.parameters(), lr=1e-4)
     
     def forward(self, input_ids, attention_mask, tgt, /):
         out = self.t5(input_ids, attention_mask=attention_mask, labels=tgt)
@@ -86,19 +86,9 @@ class SBFTransformer(L.LightningModule):
         out = self.forward(input_ids, attn_mask, tgt_seq)
         return out.loss
     
-    def validation_step(self, input_ids, tgt_seq):
-        out = self.generate(input_ids)
-        out_seq = out.sequences
-        logits = torch.stack(out.logits, dim=1)
-        loss = F.cross_entropy(logits, tgt_seq)
-        tgt_str = self.tokenizer.batch_decode(tgt_seq, # this needs to be a tensor, so we have to encode then decode it T.T
-                                              skip_special_tokens=True,
-                                              clean_up_tokenization_spaces=True)
-        out_str = self.tokenizer.batch_decode(out_seq,
-                                              skip_special_tokens=True,
-                                              clean_up_tokenization_spaces=True)
-        p, r, f1 = bertscore(tgt_str, out_str)
-        return loss, p, r, f1
+    def validation_step(self, input_ids, attention_mask, tgt):
+        out = self.forward(input_ids, attention_mask=attention_mask, labels=tgt)
+        return out.loss
     
     def train_dataloader(self, tokenizer: T5Tokenizer, **kwargs):
         train_ds = load_dataset('allenai/social_bias_frames', 
@@ -157,29 +147,18 @@ class SBFTrainer:
             model.eval()
             with torch.no_grad():
                 with fabric.init_tensor():
-                    precision = torch.tensor(0.0)
-                    recall = torch.tensor(0.0)
-                    f1_score = torch.tensor(0.0)
                     val_loss = torch.tensor(0.0)
                 for idx, batch in enumerate(val_loader):
                     input_ids = batch['post_ids']
-                    tgt_seq = batch['stype_ids']
-                    loss, p, r, f1 = model.validation_step(input_ids, tgt_seq)
-                    precision += p
-                    recall += r
-                    f1_score += f1
+                    attn_mask = batch['post_attn']
+                    stype = batch['stype_ids']
+                    loss = model.validation_step(input_ids, attn_mask, stype)
                     val_loss += loss
                     t.update()
-                precision = fabric.all_reduce(precision)
-                recall = fabric.all_reduce(recall)
-                f1_score = fabric.all_reduce(f1_score)
                 val_loss = fabric.all_reduce(val_loss)
                 if fabric.is_global_zero:
                     fabric.call("log_metrics",
                                 val_loss=val_loss.item(),
-                                precision=precision.item(),
-                                recall=recall.item(),
-                                f1=f1_score.item(),
                                 epoch=epoch)
         t.close()
         fabric.call("on_fit_end")
