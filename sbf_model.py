@@ -186,7 +186,7 @@ class SBFTrainer:
                     attn_mask = batch['post_attn']
                     stype = batch['stype_ids']
                     loss = model.validation_step(input_ids, attn_mask, stype)
-                    val_loss += (loss/ len(val_loader))
+                    val_loss += (loss / len(val_loader))
                     t.update()
                 val_loss = fabric.all_reduce(val_loss)
                 if fabric.is_global_zero:
@@ -194,7 +194,7 @@ class SBFTrainer:
                                 val_loss=val_loss.item(),
                                 epoch=epoch)
         fabric.barrier()
-        fabric.save(f'/root/t5-test-1-{model.trained_epochs}.ckpt', state)
+        fabric.save(f't5-test-1-{model.trained_epochs}.ckpt', state)
         t.reset(total=len(test_loader))
         t.set_description(f'Testing')
         model.eval()
