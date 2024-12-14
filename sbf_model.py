@@ -73,7 +73,6 @@ class SBFTransformer(L.LightningModule):
         self.t5 = T5ForConditionalGeneration.from_pretrained('google-t5/t5-large')
         self.t5.train()
         self.tokenizer = tokenizer
-        self.trained_epochs = 0
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-4)
@@ -147,15 +146,19 @@ class SBFTrainer:
         [train_loader, val_loader, test_loader] = fabric.setup_dataloaders(train_loader,
                                                                            val_loader,
                                                                            test_loader)
+        with fabric.init_tensor():
+            trained_epochs = torch.tensor(0)
         state = {
             'model': model,
-            'optimizer': optimizer
+            'optimizer': optimizer,
+            'trained_epochs': trained_epochs
         }
         if load_path is not None:
             fabric.load(load_path, state) 
         t = tqdm()
+        fabric.print(f"THIS MODEL HAS BEEN TRAINED FOR {trained_epochs} EPOCHS.")
         for epoch in range(self.max_epochs):
-            model.trained_epochs += 1
+            trained_epochs += 1
             t.reset(total=len(train_loader))
             t.set_description(f'Training epoch {epoch}')
             model.train()
@@ -196,7 +199,7 @@ class SBFTrainer:
                                 val_loss=val_loss.item(),
                                 epoch=epoch)
         fabric.barrier()
-        fabric.save(f't5-test-1-{model.trained_epochs}.ckpt', state)
+        fabric.save(f't5-test-1-{trained_epochs}.ckpt', state)
         # t.reset(total=len(test_loader))
         # t.set_description(f'Testing')
         # model.eval()
