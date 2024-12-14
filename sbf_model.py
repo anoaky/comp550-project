@@ -166,7 +166,7 @@ class SBFTrainer:
                 stype = batch['stype_ids']
                 loss = model.training_step(input_ids, attn_mask, stype)
                 fabric.backward(loss)
-                running_loss += loss
+                running_loss += (loss / len(train_loader))
                 optimizer.step()
                 t.update()
             avg_loss = fabric.all_reduce(running_loss)
@@ -186,7 +186,7 @@ class SBFTrainer:
                     attn_mask = batch['post_attn']
                     stype = batch['stype_ids']
                     loss = model.validation_step(input_ids, attn_mask, stype)
-                    val_loss += loss
+                    val_loss += (loss/ len(val_loader))
                     t.update()
                 val_loss = fabric.all_reduce(val_loss)
                 if fabric.is_global_zero:
