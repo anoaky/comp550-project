@@ -265,8 +265,7 @@ def main(args):
                                              model.val_dataloader(tokenizer, **dataloader_kwargs),
                                              model.test_dataloader(tokenizer, **dataloader_kwargs))
     fabric_summary = FabricSummary()
-    strategy = FSDPStrategy(cpu_offload=True,
-                            mixed_precision=torch.distributed.fsdp.MixedPrecision(param_dtype=torch.bfloat16),
+    strategy = FSDPStrategy(cpu_offload=False,
                             state_dict_type='full')
     fabric = L.Fabric(callbacks=[comet_cb, fabric_summary],
                       loggers=[],
