@@ -51,17 +51,10 @@ if __name__ == '__main__':
     parser.add_argument('-g', '--step_every', default=4, type=int)
     parser.add_argument('-l', '--log_every', default=50, type=int)
     parser.add_argument('-b', '--batch_size', default=16, type=int)
-    parser.add_argument('-w', '--num_workers', default=0, type=int)
-    parser.add_argument('-c', '--checkout', action="store_true")
     args = parser.parse_args()
-    if args.checkout:
-        args.branch_name = args.experiment_name
-    else:
-        args.branch_name = 'main'
     print(f'EXPERIMENT NAME: {args.experiment_name}',
           f'SELECTED PROBLEM: {args.problem}',
           f'EPOCHS: {args.epochs}',
-          f'WORKERS: {args.num_workers}',
           f'BATCH {args.batch_size} ACCUMULATE FOR {args.step_every}',
           )
     main(args)
