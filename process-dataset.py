@@ -36,7 +36,7 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
                 'labels': mean_response,
             }
         ds.map(gather, desc='Gathering annotator responses...')
-        return ds.map(binarize, remove_columns=['post', feature], desc='Binarizing selected feature...')
+        return Dataset.from_dict(responses)
     ds = load_dataset(HF_DS, split=split, trust_remote_code=True)
     ds = ds.select_columns(['post', feature]).map(remove_blanks)
     ds = ds.class_encode_column(feature)
@@ -45,7 +45,7 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-f', '--feature', required=True, choices=['offensiveYN'], type=str)
+    parser.add_argument('-f', '--feature', required=True, choices=['offensiveYN', 'sexYN'], type=str)
     args = parser.parse_args()
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
     train_set = get_dataset('train', args.feature, tokenizer)
