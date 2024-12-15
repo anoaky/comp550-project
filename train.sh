@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-#SBATCH --job-name=bart-offensive
+#SBATCH --job-name=bart
 #SBATCH --time=06:00:00
+#SBATCH --partition=nodegpupool12
 #SBATCH --ntasks-per-node=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8

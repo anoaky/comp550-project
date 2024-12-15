@@ -1,6 +1,7 @@
 import comet_ml
 import torch
 import torch.nn as nn
+import torch.optim
 import datasets
 import typing
 from torch.utils.data import Dataset, DataLoader
@@ -40,6 +41,13 @@ class SBFPreprocessed(Dataset):
         def remove_blanks(row):
             if len(row['targetCategory']) == 0:
                 row['targetCategory'] = 'none'
+            if len(row['offensiveYN']) == 0:
+                row['offensiveYN'] = '0.0'
+                # for *some* reason, there are blank entries, even though
+                # that should correspond to "not offensive"
+            if len(row['speakerMinorityYN']) == 0:
+                row['speakerMinorityYN'] = '0.0'
+                # here too ! but not in any of the other features
             return row
         selected_columns = [
             'post',
@@ -59,6 +67,7 @@ class SBFPreprocessed(Dataset):
         self.hf_data = self.hf_data.select_columns(selected_columns).map(remove_blanks)
         for col in class_encode:
             self.hf_data = self.hf_data.class_encode_column(col)
+        print(self.hf_data.features)
     
     def __len__(self):
         return len(self.hf_data)
@@ -89,15 +98,21 @@ class SBFModel(nn.Module, PyTorchModelHubMixin):
                  base_name: str,
                  num_labels: int):
         super().__init__()
-        config = AutoConfig.from_pretrained(model_path, num_labels=num_labels)
+        config = AutoConfig.from_pretrained(model_path,
+                                            num_labels=num_labels)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path, 
                                                                         config=config,
-                                                                        ignore_mismatched_sizes=True)
+                                                                        ignore_mismatched_sizes=True,)
         self.base_name = base_name
         self.model.train()
         
-    def forward(self, ids, attns, labels):
-        return self.model(ids, attention_mask=attns, labels=labels)
+    def forward(self, ids, attn, labels):
+        out = self.model(ids, attention_mask=attn, labels=labels)
+        return out
+    
+    def configure_optimizers(self):
+        # as a fallback
+        return torch.optim.AdamW(self.parameters(), lr=2e-4)
         
     def training_step(self,
                       ids: torch.LongTensor,
@@ -112,7 +127,8 @@ class SBFModel(nn.Module, PyTorchModelHubMixin):
                         attn: torch.LongTensor,
                         labels: torch.LongTensor,
                         ) -> torch.FloatTensor:
-        return self.training_step(ids, attn, labels) # TODO
+        out = self.forward(ids, attn, labels)
+        return out.loss
     
     def test_step(self,
                   batch: typing.Dict[str, torch.LongTensor],
@@ -171,11 +187,11 @@ class SBFTrainer:
             model: SBFModel,
             device: str,
             *,
-            label_key: str,
             train_loader: DataLoader,
             val_loader: DataLoader,
             ):
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+        optimizer = model.configure_optimizers()
+        label_key = model.label_key
         model = model.to(device)
         t = tqdm()
         for epoch in range(self.max_epochs):
@@ -205,10 +221,10 @@ class SBFTrainer:
                                         epoch=epoch)
             
             model.eval()
-            running_loss = torch.tensor(0.0, device=device)
             t.reset(total=val_len)
             t.set_description(f'Validation epoch {epoch}')
             with torch.no_grad():
+                running_loss = torch.tensor(0.0, device=device)
                 for batch in val_loader:
                     ids = batch['ids']
                     attn = batch['attn']
@@ -217,4 +233,8 @@ class SBFTrainer:
                     running_loss = running_loss + loss
                     
                     t.update()
+                val_loss = running_loss / val_len
+                self.experiment.log_metrics({'val_loss': val_loss.item()},
+                                            prefix=model.base_name,
+                                            epoch=epoch)
         t.clear()
