@@ -8,11 +8,13 @@ from argparse import ArgumentParser
 class BartOffensive(SBFModel):
     def __init__(self):
         super().__init__(model_path='facebook/bart-large-mnli',
-                         base_name='sbf-bart-offensive')
+                         base_name='sbf-bart-offensive',
+                         num_labels=8,)
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    expconf = comet_ml.ExperimentConfig(name=args.experiment_name)
+    expconf = comet_ml.ExperimentConfig(name=args.experiment_name,
+                                        parse_args=False)
     experiment = comet_ml.start(workspace='anoaky',
                                 project_name='comp-550-project',
                                 experiment_config=expconf)
@@ -34,13 +36,16 @@ def main(args):
     try:
         trainer.fit(model,
                     device,
-                    label_key='offensiveYN',
+                    label_key='offensive',
                     train_loader=train_loader,
                     val_loader=val_loader,)
-    except:
+    except Exception as e:
+        experiment_key = experiment.get_key()
         experiment.send_notification(args.experiment_name,
                                      status='failed')
-        return
+        experiment.end()
+        comet_ml.APIExperiment(previous_experiment=experiment_key).archive()
+        raise e
     experiment.end()
     experiment.send_notification(args.experiment_name,
                                  status='finished')

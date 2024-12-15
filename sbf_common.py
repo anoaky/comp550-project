@@ -8,6 +8,7 @@ from transformers import (BartTokenizer,
                           BertTokenizer,
                           T5Tokenizer, 
                           AutoModelForSequenceClassification,
+                          AutoConfig,
                           )
 from datasets import load_dataset
 from tqdm import tqdm
@@ -37,9 +38,7 @@ class SBFPreprocessed(Dataset):
     
     def preprocess(self):
         def remove_blanks(row):
-            if len(row['targetStereotype']) == 0:
-                row['targetStereotype'] = 'not applicable'
-            if len(row['targetCategory'] == 0):
+            if len(row['targetCategory']) == 0:
                 row['targetCategory'] = 'none'
             return row
         selected_columns = [
@@ -84,29 +83,36 @@ class SBFPreprocessed(Dataset):
         }
         
 class SBFModel(nn.Module, PyTorchModelHubMixin):
-    def __init__(self, 
+    def __init__(self,
+                 *,
                  model_path: str,
-                 base_name: str):
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
+                 base_name: str,
+                 num_labels: int):
+        super().__init__()
+        config = AutoConfig.from_pretrained(model_path, num_labels=num_labels)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_path, 
+                                                                        config=config,
+                                                                        ignore_mismatched_sizes=True)
         self.base_name = base_name
         self.model.train()
         
     def forward(self, ids, attns, labels):
         return self.model(ids, attention_mask=attns, labels=labels)
         
-    def training_step(self, 
-                      batch: typing.List[torch.LongTensor],
+    def training_step(self,
+                      ids: torch.LongTensor,
+                      attn: torch.LongTensor,
+                      labels: torch.LongTensor,
                       ) -> torch.FloatTensor:
-        ids = batch[0]
-        attns = batch[1]
-        labels = batch[2]
-        out = self.forward(ids, attention_mask=attns, labels=labels)
+        out = self.forward(ids, attn, labels)
         return out.loss
     
     def validation_step(self, 
-                        batch: typing.List[torch.LongTensor],
+                        ids: torch.LongTensor,
+                        attn: torch.LongTensor,
+                        labels: torch.LongTensor,
                         ) -> torch.FloatTensor:
-        return self.training_step(batch) # TODO
+        return self.training_step(ids, attn, labels) # TODO
     
     def test_step(self,
                   batch: typing.Dict[str, torch.LongTensor],
@@ -116,7 +122,7 @@ class SBFModel(nn.Module, PyTorchModelHubMixin):
         ids = batch['ids']
         attns = batch['attn']
         labels = batch[label_key]
-        out = self.forward(ids, attention_mask=attns, labels=labels)
+        out = self.forward(ids, attns, labels)
         return out.logits
     
     def get_loader(self, 
@@ -169,7 +175,7 @@ class SBFTrainer:
             train_loader: DataLoader,
             val_loader: DataLoader,
             ):
-        optimizer = model.configure_optimizers()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
         model = model.to(device)
         t = tqdm()
         for epoch in range(self.max_epochs):
@@ -180,12 +186,10 @@ class SBFTrainer:
             model.train()
             running_loss = torch.tensor(0.0, device=device)
             for idx, batch in enumerate(train_loader):
-                batch = [
-                    batch['ids'].to(device),
-                    batch['attn'].to(device),
-                    batch[label_key].to(device),
-                ]
-                loss = model.training_step(batch, label_key)
+                ids = batch['ids']
+                attn = batch['attn']
+                labels = batch[label_key]
+                loss = model.training_step(ids.to(device), attn.to(device), labels.to(device))
                 running_loss = running_loss + loss
                 acc_norm = torch.min(torch.tensor([4, train_len - idx])) # this accounts for number of batches not evenly dividing step_every
                 loss = loss / acc_norm
@@ -206,12 +210,10 @@ class SBFTrainer:
             t.set_description(f'Validation epoch {epoch}')
             with torch.no_grad():
                 for batch in val_loader:
-                    batch = [
-                        batch['ids'].to(device),
-                        batch['attn'].to(device),
-                        batch[label_key].to(device),
-                    ]
-                    loss = model.validation_step(batch)
+                    ids = batch['ids']
+                    attn = batch['attn']
+                    labels = batch[label_key]
+                    loss = model.validation_step(ids.to(device), attn.to(device), labels.to(device))
                     running_loss = running_loss + loss
                     
                     t.update()

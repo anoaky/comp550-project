@@ -2,8 +2,8 @@ torch~=2.5.0
 torchaudio
 torchvision
 transformers==4.47.0
-comet-ml==3.47.4
+comet-ml==3.47.1
 tqdm==4.67.1
-datasets==3.2.0
+datasets==3.1.0
 sentencepiece==0.2.0
 huggingface_hub
