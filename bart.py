@@ -14,7 +14,7 @@ def main(args):
     feature = f'{args.problem}YN'
     out_dir = f'{os.environ['SLURM_TMPDIR']}/{model_id}'
     targs = TrainingArguments(output_dir=out_dir,
-                              run_name=f'bart-{args.problem}',
+                              run_name=args.experiment_name,
                               do_train=True,
                               do_eval=True,
                               per_device_train_batch_size=args.batch_size,
