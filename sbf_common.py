@@ -49,24 +49,37 @@ class SBFPreprocessed(Dataset):
                 row['speakerMinorityYN'] = '0.0'
                 # here too ! but not in any of the other features
             return row
+        def encode_column(col: str):
+            posts = self.hf_data.unique('post')
+            mean_responses = []
+            for post in posts:
+                responses = []
+                for row in range(self.hf_data.num_rows):
+                    if row['post'] == post:
+                        responses.append([row, row[col]])
+                mean_response = torch.tensor(responses)[:, 1].squeeze().mean().round().item()
+                for response in responses:
+                    mean_responses.append(response[0], mean_response)
+            return mean_responses
         selected_columns = [
             'post',
             'intentYN',
             'offensiveYN',
             'sexYN',
             'speakerMinorityYN',
-            'targetCategory'
         ]
         class_encode = [
             'intentYN',
             'offensiveYN',
             'sexYN',
             'speakerMinorityYN',
-            'targetCategory'
         ]
         self.hf_data = self.hf_data.select_columns(selected_columns).map(remove_blanks)
         for col in class_encode:
             self.hf_data = self.hf_data.class_encode_column(col)
+            mean_responses = encode_column(col)
+            for response in mean_responses:
+                self.hf_data[response[0]][col] = response[1]
         print(self.hf_data.features)
     
     def __len__(self):
@@ -80,7 +93,6 @@ class SBFPreprocessed(Dataset):
         offensive = torch.tensor(row['offensiveYN'])
         sex = torch.tensor(row['sexYN'])
         minority = torch.tensor(row['speakerMinorityYN'])
-        category = torch.tensor(row['targetCategory'])
         return {
             'ids': tok_post.input_ids.view(-1),
             'attn': tok_post.attention_mask.view(-1),
@@ -88,7 +100,6 @@ class SBFPreprocessed(Dataset):
             'offensive': offensive,
             'sex': sex,
             'minority': minority,
-            'category': category,
         }
         
 class SBFModel(nn.Module, PyTorchModelHubMixin):
