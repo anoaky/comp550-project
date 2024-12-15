@@ -39,8 +39,6 @@ class SBFPreprocessed(Dataset):
     
     def preprocess(self):
         def remove_blanks(row):
-            if len(row['targetCategory']) == 0:
-                row['targetCategory'] = 'none'
             if len(row['offensiveYN']) == 0:
                 row['offensiveYN'] = '0.0'
                 # for *some* reason, there are blank entries, even though
