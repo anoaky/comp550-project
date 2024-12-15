@@ -1,12 +1,10 @@
 #!/bin/bash
 #
-#SBATCH --job-name=bart
-#SBATCH --time=06:00:00
-#SBATCH --partition=nodegpupool12
+#SBATCH --job-name=preprocess
+#SBATCH --time=01:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:1
 #SBATCH --wait-all-nodes=1
 #SBATCH --mem=64G
 #SBATCH --output=output/job_output_%j.out
