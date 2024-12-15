@@ -49,7 +49,7 @@ class SBFPreprocessed(Dataset):
                 row['speakerMinorityYN'] = '0.0'
                 # here too ! but not in any of the other features
             return row
-        def encode_column(col: str):
+        def rebinarize_column(col: str):
             posts = self.hf_data.unique('post')
             mean_responses = []
             for post in posts:
@@ -77,7 +77,7 @@ class SBFPreprocessed(Dataset):
         self.hf_data = self.hf_data.select_columns(selected_columns).map(remove_blanks)
         for col in class_encode:
             self.hf_data = self.hf_data.class_encode_column(col)
-            mean_responses = encode_column(col)
+            mean_responses = rebinarize_column(col)
             for response in mean_responses:
                 self.hf_data[response[0]][col] = response[1]
         print(self.hf_data.features)
@@ -106,11 +106,10 @@ class SBFModel(nn.Module, PyTorchModelHubMixin):
     def __init__(self,
                  *,
                  model_path: str,
-                 base_name: str,
-                 num_labels: int):
+                 base_name: str):
         super().__init__()
         config = AutoConfig.from_pretrained(model_path,
-                                            num_labels=num_labels)
+                                            num_labels=1)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path, 
                                                                         config=config,
                                                                         ignore_mismatched_sizes=True,)
@@ -139,7 +138,8 @@ class SBFModel(nn.Module, PyTorchModelHubMixin):
                         labels: torch.LongTensor,
                         ) -> torch.FloatTensor:
         out = self.forward(ids, attn, labels)
-        return out.loss
+        pred = torch.softmax(out.logits).round()
+        return pred, out.loss
     
     def test_step(self,
                   batch: typing.Dict[str, torch.LongTensor],
@@ -236,16 +236,24 @@ class SBFTrainer:
             t.set_description(f'Validation epoch {epoch}')
             with torch.no_grad():
                 running_loss = torch.tensor(0.0, device=device)
+                y = []
+                yh = []
                 for batch in val_loader:
                     ids = batch['ids']
                     attn = batch['attn']
                     labels = batch[label_key]
-                    loss = model.validation_step(ids.to(device), attn.to(device), labels.to(device))
+                    preds, loss = model.validation_step(ids.to(device), attn.to(device), labels.to(device))
                     running_loss = running_loss + loss
                     
+                    y.append(labels)
+                    yh.append(preds)
                     t.update()
+                y = torch.cat(y).tolist()
+                yh = torch.cat(yh).tolist()
                 val_loss = running_loss / val_len
                 self.experiment.log_metrics({'val_loss': val_loss.item()},
                                             prefix=model.base_name,
                                             epoch=epoch)
+                self.experiment.log_confusion_matrix(y_true=y,
+                                                     y_predicted=yh,)
         t.clear()
