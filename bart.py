@@ -1,4 +1,4 @@
-import comet_ml
+import neptune
 import torch
 import torch.optim
 from transformers import BartTokenizer, BartForSequenceClassification, Trainer, TrainingArguments
@@ -29,7 +29,7 @@ def main(args):
                               per_device_eval_batch_size=8,
                               gradient_accumulation_steps=8,
                               logging_steps=50,
-                              report_to=['comet_ml'],
+                              report_to=['neptune'],
                               push_to_hub=False,
                               hub_model_id=model_id,)
     trainer = Trainer(model,
