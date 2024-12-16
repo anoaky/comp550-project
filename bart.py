@@ -13,7 +13,8 @@ def main(args):
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
     model_id = f'anoaky/sbf-bart-{args.problem}'
     feature = f'{args.problem}YN'
-    targs = TrainingArguments(output_dir='',
+    out_dir = f"./{model_id}"
+    targs = TrainingArguments(output_dir=out_dir,
                               run_name=args.experiment_name,
                               do_train=True,
                               do_eval=True,
