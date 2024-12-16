@@ -43,7 +43,7 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     ds = load_dataset('anoaky/sbf-collated', feature, split=split)
     def tokenize(x):
         post = tokenizer(x['post'], **tok_kwargs)
-        label = torch.tensor(x[feature]).round().item()
+        label = torch.tensor(x[feature]).round().long()
         return {
             'input_ids': post.input_ids.view(-1),
             'attention_mask': post.attention_mask.view(-1),
