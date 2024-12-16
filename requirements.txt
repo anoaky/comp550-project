@@ -9,3 +9,4 @@ sentencepiece==0.2.0
 huggingface_hub
 accelerate
 pandas
+scikit-learn

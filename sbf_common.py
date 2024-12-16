@@ -24,7 +24,6 @@ def cls_metrics(ep: EvalPrediction):
     logits = torch.tensor(ep.predictions[0])
     logits = logits.squeeze(dim=1)
     preds = logits.softmax(0).round().numpy().astype(np.uint8)
-    print(ep.label_ids.shape)
     labels = np.rint(ep.label_ids).astype(np.uint8)
     precision = precision_score(labels, preds)
     recall = recall_score(labels, preds)
