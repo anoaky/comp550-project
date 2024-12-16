@@ -25,8 +25,15 @@ tok_kwargs = {
     'add_special_tokens': True,
 }
 
+def unpack_ep(ep: EvalPrediction):
+    if len(ep.predictions) == 2:
+        (logits, _), labels = ep
+    else:
+        logits, labels = ep
+    return logits, labels
+
 def cls_metrics(ep: EvalPrediction):
-    (logits, _), labels = ep
+    logits, labels = unpack_ep(ep)
     preds = torch.tensor(logits).softmax(-1).argmax(-1).numpy().astype(np.uint8)
     precision = precision_score(labels, preds)
     recall = recall_score(labels, preds)
@@ -90,7 +97,7 @@ def train(model, tokenizer, hub_model_id, args):
                               do_eval=True,
                               do_predict=True,
                               eval_strategy='epoch',
-                              eval_on_start=False,
+                              eval_on_start=True,
                               save_strategy='epoch',
                               save_only_model=True,
                               num_train_epochs=5.0,
