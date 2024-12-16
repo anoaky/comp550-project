@@ -11,7 +11,7 @@ def main(args):
                                                           num_labels=1,
                                                           ignore_mismatched_sizes=True,)
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
-    model_id = f'anoaky/sbf-bart-{args.problem}'
+    model_id = f'anoaky/sbf-bart-{args.problem}_{args.epochs}'
     feature = f'{args.problem}YN'
     out_dir = f"./{model_id}"
     targs = TrainingArguments(output_dir=out_dir,
