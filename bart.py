@@ -1,3 +1,4 @@
+import comet_ml
 import torch
 import torch.optim
 from transformers import BartTokenizer, BartForSequenceClassification, Trainer, TrainingArguments
@@ -12,19 +13,19 @@ def main(args):
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
     model_id = f'anoaky/sbf-bart-{args.problem}'
     feature = f'{args.problem}YN'
-    out_dir = f"{os.environ['SLURM_TMPDIR']}/{model_id}"
+    out_dir = f"./{model_id}"
     targs = TrainingArguments(output_dir=out_dir,
                               run_name=args.experiment_name,
                               do_train=True,
                               do_eval=True,
-                              per_device_train_batch_size=args.batch_size,
-                              per_device_eval_batch_size=args.batch_size,
-                              gradient_accumulation_steps=args.step_every,
                               eval_strategy='epoch',
                               eval_on_start=True,
                               num_train_epochs=args.epochs,
                               bf16=torch.cuda.is_bf16_supported(),
-                              logging_steps=args.log_every,
+                              per_device_train_batch_size=8,
+                              per_device_eval_batch_size=8,
+                              gradient_accumulation_steps=8,
+                              logging_steps=50,
                               report_to=['comet_ml'],
                               push_to_hub=True,
                               hub_model_id=model_id,
@@ -43,18 +44,9 @@ def main(args):
     
 
 if __name__ == '__main__':
-    
     parser = ArgumentParser()
     parser.add_argument('-n', '--experiment_name', required=True, type=str)
     parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex'])
     parser.add_argument('-e', '--epochs', default=1, type=int)
-    parser.add_argument('-g', '--step_every', default=4, type=int)
-    parser.add_argument('-l', '--log_every', default=50, type=int)
-    parser.add_argument('-b', '--batch_size', default=16, type=int)
     args = parser.parse_args()
-    print(f'EXPERIMENT NAME: {args.experiment_name}',
-          f'SELECTED PROBLEM: {args.problem}',
-          f'EPOCHS: {args.epochs}',
-          f'BATCH {args.batch_size} ACCUMULATE FOR {args.step_every}',
-          )
     main(args)
