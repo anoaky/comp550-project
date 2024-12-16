@@ -24,6 +24,7 @@ def main(args):
                               save_strategy='epoch',
                               num_train_epochs=args.epochs,
                               bf16=torch.cuda.is_bf16_supported(),
+                              torch_empty_cache_steps=10,
                               per_device_train_batch_size=8,
                               per_device_eval_batch_size=8,
                               gradient_accumulation_steps=8,
