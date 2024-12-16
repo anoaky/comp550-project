@@ -1,3 +1,4 @@
+import wandb
 import torch
 import torch.optim
 import torch.nn.functional as F
@@ -9,6 +10,7 @@ from transformers import (PreTrainedTokenizer,
 from datasets import load_dataset
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score
+import os
 
 MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
@@ -54,6 +56,10 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     return ds
 
 def train(model, tokenizer, hub_model_id, args):
+    wandb_token = os.environ['WANDB_TOKEN']
+    assert len(wandb_token) > 0
+    login_succ = wandb.login(key=wandb_token, verify=True)
+    assert login_succ
     feature = f'{args.problem}YN'
     out_dir = args.output_dir
     targs = TrainingArguments(output_dir=out_dir,
