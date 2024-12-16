@@ -20,7 +20,8 @@ tok_kwargs = {
 }
 
 def cls_metrics(ep: EvalPrediction):
-    preds = np.rint(ep.predictions).astype(np.uint8)
+    logits = torch.tensor(ep.predictions[1]).squeeze(dim=1)
+    preds = logits.softmax(0).round().numpy().astype(np.uint8)
     labels = np.rint(ep.label_ids).astype(np.uint8)
     pos_idx = preds == 1
     neg_idx = preds == 0
@@ -47,7 +48,7 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     ds = load_dataset('anoaky/sbf-collated', feature, split=split)
     def tokenize(x):
         post = tokenizer(x['post'], **tok_kwargs)
-        label = torch.tensor(x[feature]).ceil().item()
+        label = torch.tensor(x[feature]).round().item()
         return {
             'input_ids': post.input_ids.view(-1),
             'attention_mask': post.attention_mask.view(-1),
