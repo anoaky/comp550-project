@@ -20,7 +20,7 @@ def main(args):
                               do_train=True,
                               do_eval=True,
                               eval_strategy='epoch',
-                              eval_on_start=True,
+                              eval_on_start=False,
                               save_strategy='epoch',
                               num_train_epochs=args.epochs,
                               bf16=torch.cuda.is_bf16_supported(),
