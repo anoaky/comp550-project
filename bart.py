@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex'])
     parser.add_argument('-e', '--epochs', default=1, type=int)
-    parser.add_argument('-o', '--output_dir', default='outputs/model', type=str)
+    parser.add_argument('-o', '--output_dir', default='/tmp/model', type=str)
     args = parser.parse_args()
     args.experiment_name = f'sbf-bart-{args.problem}_{args.epochs}'
     os.environ['COMET_PROJECT_NAME'] = 'comp-550-project'
