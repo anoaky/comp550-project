@@ -5,3 +5,5 @@ output/
 data/
 sky.yaml
 paperspace.yaml
+wandb/
+.test/

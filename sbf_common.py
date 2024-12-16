@@ -38,10 +38,14 @@ def cls_metrics(ep: EvalPrediction):
     precision = precision_score(labels, preds)
     recall = recall_score(labels, preds)
     f1 = f1_score(labels, preds)
+    cm = wandb.plot.confusion_matrix(y_true=labels,
+                                     preds=preds,
+                                     class_names=['Positive', 'Negative'])
     return {
         'precision': precision,
         'recall': recall,
-        'f1': f1
+        'f1': f1,
+        'confusion_matrix': cm,
     } 
 
 def cls_loss(outputs, labels, *, num_items_in_batch):
@@ -50,36 +54,36 @@ def cls_loss(outputs, labels, *, num_items_in_batch):
             logits = outputs["logits"]
             return F.cross_entropy(logits, labels)
         
-def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
-    ds = load_dataset('anoaky/sbf-collated', feature, split=split)
+def get_dataset(split: str, label: str, tokenizer: PreTrainedTokenizer):
+    ds = load_dataset('anoaky/sbf-collated', label, split=split)
     def tokenize(x):
         post = tokenizer(x['post'], **tok_kwargs)
-        label = torch.tensor(x[feature]).round().long()
+        y = torch.tensor(x[label]).round().long()
         return {
             'input_ids': post.input_ids.view(-1),
             'attention_mask': post.attention_mask.view(-1),
-            'labels': label,
+            'labels': y,
         }
     ds = ds.map(tokenize)
     return ds
 
 def wandb_setup(args):
-    proj = os.environ['WANDB_PROJECT']
+    os.environ['WANDB_LOG_MODEL'] = 'end'
+    os.environ['WANDB_WATCH'] = 'all'
+    os.environ['WANDB_PROJECT'] = 'COMP550'
+    proj = 'COMP550'
     wandb.init(
         project=proj,
         name=args.run,
-        tags=[args.tag],
-        group=args.problem,
+        tags=args.tags,
+        group=args.label,
     )
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex', 'intent', 'speakerMinority'])
+    parser.add_argument('-l', '--label', required=True, choices=['offensive', 'sex', 'intent', 'speakerMinority'])
     parser.add_argument('-o', '--output_dir', default='/outputs/model', type=str)
     args = parser.parse_args()
-    os.environ['WANDB_LOG_MODEL'] = 'end'
-    os.environ['WANDB_WATCH'] = 'all'
-    os.environ['WANDB_PROJECT'] = 'COMP550'
     return args
 
 def train(model, tokenizer, hub_model_id, args):
@@ -88,7 +92,7 @@ def train(model, tokenizer, hub_model_id, args):
     login_succ = wandb.login(key=wandb_token, verify=True)
     assert login_succ
     wandb_setup(args)
-    feature = f'{args.problem}YN'
+    label = f'{args.label}YN'
     out_dir = args.output_dir
     targs = TrainingArguments(output_dir=out_dir,
                               overwrite_output_dir=True,
@@ -114,10 +118,10 @@ def train(model, tokenizer, hub_model_id, args):
                               hub_strategy='all_checkpoints',)
     trainer = Trainer(model,
                       args=targs,
-                      train_dataset=get_dataset('train', feature, tokenizer),
-                      eval_dataset=get_dataset('validation', feature, tokenizer),
+                      train_dataset=get_dataset('train', label, tokenizer),
+                      eval_dataset=get_dataset('validation', label, tokenizer),
                       compute_loss_func=cls_loss,
                       compute_metrics=cls_metrics,)
     trainer.train()
     trainer.evaluate()
-    trainer.predict(get_dataset('test', feature, tokenizer))
+    trainer.predict(get_dataset('test', label, tokenizer))
