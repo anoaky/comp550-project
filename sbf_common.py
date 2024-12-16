@@ -20,8 +20,8 @@ tok_kwargs = {
 }
 
 def cls_metrics(ep: EvalPrediction):
-    print(ep.predictions[1].shape)
-    logits = torch.tensor(ep.predictions[1])
+    print(ep.predictions[0].shape)
+    logits = torch.tensor(ep.predictions[0])
     print(logits.shape)
     logits = logits.squeeze(dim=1)
     print(logits.shape)
