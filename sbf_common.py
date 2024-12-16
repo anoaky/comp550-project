@@ -1,10 +1,12 @@
 import torch
 import torch.optim
 import torch.nn.functional as F
-from torch.utils.data import Dataset
 from transformers import (PreTrainedTokenizer,
-                          EvalPrediction
+                          EvalPrediction,
+                          Trainer,
+                          TrainingArguments,
                           )
+from transformers.integrations import NeptuneCallback
 from datasets import load_dataset
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score
@@ -51,3 +53,41 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
         }
     ds = ds.map(tokenize)
     return ds
+
+def train(model, tokenizer, hub_model_id, args):
+    feature = f'{args.problem}YN'
+    out_dir = args.output_dir
+    npt_cb = NeptuneCallback(project='COMP550',
+                             name=args.experiment_name)
+    targs = TrainingArguments(output_dir=out_dir,
+                              overwrite_output_dir=True,
+                              run_name=args.experiment_name,
+                              do_train=True,
+                              do_eval=True,
+                              do_predict=True,
+                              eval_strategy='epoch',
+                              eval_on_start=False,
+                              save_strategy='epoch',
+                              num_train_epochs=args.epochs,
+                              bf16=torch.cuda.is_bf16_supported(),
+                              torch_empty_cache_steps=10,
+                              per_device_train_batch_size=8,
+                              per_device_eval_batch_size=8,
+                              gradient_accumulation_steps=8,
+                              logging_steps=50,
+                              report_to=[],
+                              push_to_hub=False,
+                              hub_model_id=hub_model_id,)
+    trainer = Trainer(model,
+                      callbacks=[npt_cb],
+                      args=targs,
+                      train_dataset=get_dataset('train', feature, tokenizer),
+                      eval_dataset=get_dataset('validation', feature, tokenizer),
+                      compute_loss_func=cls_loss,
+                      compute_metrics=cls_metrics,)
+    trainer.train()
+    trainer.evaluate()
+    trainer.predict(get_dataset('test', feature, tokenizer))
+    model.push_to_hub(hub_model_id,
+                      use_temp_dir=False,
+                      revision=f'{args.problem}_{args.epochs}')
