@@ -57,7 +57,7 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
 
 def train(model, tokenizer, hub_model_id, args):
     wandb_token = os.environ['WANDB_TOKEN']
-    assert len(wandb_token) > 0
+    assert len(wandb_token) == 40
     login_succ = wandb.login(key=wandb_token, verify=True)
     assert login_succ
     feature = f'{args.problem}YN'
