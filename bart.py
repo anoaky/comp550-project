@@ -48,9 +48,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-n', '--experiment_name', required=True, type=str)
     parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex'])
     parser.add_argument('-e', '--epochs', default=1, type=int)
     args = parser.parse_args()
+    args.experiment_name = f'sbf-bart-{args.problem}_{args.epochs}'
     os.environ['COMET_PROJECT_NAME'] = 'comp-550-project'
     main(args)
