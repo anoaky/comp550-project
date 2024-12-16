@@ -19,7 +19,7 @@ def get_dataset(split: str, feature: str):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-f', '--feature', required=True, choices=['offensiveYN', 'sexYN', 'intentYN'], type=str)
+    parser.add_argument('-f', '--feature', required=True, choices=['offensiveYN', 'sexYN', 'intentYN', 'speakerMinorityYN'], type=str)
     parser.add_argument('-s', '--split', required=True, choices=['train', 'validation', 'test'], type=str)
     args = parser.parse_args()
     new_ds = get_dataset(args.split, args.feature)

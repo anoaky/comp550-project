@@ -74,7 +74,7 @@ def wandb_setup(args):
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex', 'intent'])
+    parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex', 'intent', 'speakerMinority'])
     parser.add_argument('-o', '--output_dir', default='/outputs/model', type=str)
     args = parser.parse_args()
     os.environ['WANDB_LOG_MODEL'] = 'end'
