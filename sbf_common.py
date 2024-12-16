@@ -36,8 +36,8 @@ def cls_loss(outputs, labels, *, num_items_in_batch):
     if isinstance(outputs, dict) and "loss" not in outputs:
         if labels is not None:
             logits = outputs["logits"].softmax(-1).argmax(-1)
-            bce = torch.nn.BCEWithLogitsLoss()
-            return bce(logits, labels)
+            loss_fn = torch.nn.CrossEntropyLoss()
+            return loss_fn(logits, labels)
         
 def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     ds = load_dataset('anoaky/sbf-collated', feature, split=split)
