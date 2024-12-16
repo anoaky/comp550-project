@@ -13,13 +13,13 @@ def main(args):
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
     model_id = f'anoaky/sbf-bart-{args.problem}'
     feature = f'{args.problem}YN'
-    out_dir = f"./{model_id}"
-    targs = TrainingArguments(output_dir=out_dir,
+    targs = TrainingArguments(output_dir='',
                               run_name=args.experiment_name,
                               do_train=True,
                               do_eval=True,
                               eval_strategy='epoch',
                               eval_on_start=True,
+                              save_strategy='epoch',
                               num_train_epochs=args.epochs,
                               bf16=torch.cuda.is_bf16_supported(),
                               per_device_train_batch_size=8,
@@ -36,6 +36,8 @@ def main(args):
                       eval_dataset=get_dataset('validation', feature, tokenizer),
                       compute_loss_func=cls_loss,
                       compute_metrics=cls_metrics,)
+    trainer.train()
+    trainer.evaluate()
     trainer.create_model_card(language='en',
                               model_name=f'sbf-bart-{args.problem}',
                               finetuned_from='facebook/bart-large-mnli',
