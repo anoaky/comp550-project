@@ -21,6 +21,9 @@ tok_kwargs = {
 }
 
 def cls_metrics(ep: EvalPrediction):
+    print(ep)
+    print(ep.predictions)
+    print(ep.label_ids)
     logits = torch.tensor(ep.predictions[0])
     logits = logits.squeeze(dim=1)
     preds = logits.softmax(0).round().numpy().astype(np.uint8)
