@@ -8,7 +8,7 @@ import os
 
 def main(args):
     model = BartForSequenceClassification.from_pretrained('facebook/bart-large-mnli',
-                                                          num_labels=1,
+                                                          num_labels=2,
                                                           ignore_mismatched_sizes=True,)
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
     model_id = f'anoaky/sbf-bart-{args.problem}_{args.epochs}'
