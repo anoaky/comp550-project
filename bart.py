@@ -41,6 +41,7 @@ def main(args):
     trainer.train()
     trainer.evaluate()
     model.push_to_hub(model_id,
+                      use_temp_dir=False,
                       revision=f'{args.problem}_{args.epochs}')
     
 
