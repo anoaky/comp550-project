@@ -26,7 +26,7 @@ def gen_dataset(split: str, feature: str):
     def gen():
         for post in posts:
             yield {'post': post, feature: [v for v in collate(post)]}
-    return Dataset.from_generator(gen)
+    return Dataset.from_generator(gen, split=split, num_proc=8)
     
 def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     def remove_blanks(row):
