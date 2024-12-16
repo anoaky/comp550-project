@@ -11,6 +11,7 @@ from datasets import load_dataset
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score
 import os
+from argparse import ArgumentParser
 
 MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
@@ -63,6 +64,16 @@ def wandb_setup(args):
         tags=[args.problem],
         group=args.grp,
     )
+
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex', 'intent'])
+    parser.add_argument('-o', '--output_dir', default='/outputs/model', type=str)
+    args = parser.parse_args()
+    os.environ['WANDB_LOG_MODEL'] = 'end'
+    os.environ['WANDB_WATCH'] = 'all'
+    os.environ['WANDB_PROJECT'] = 'COMP550'
+    return args
 
 def train(model, tokenizer, hub_model_id, args):
     wandb_token = os.environ['WANDB_TOKEN']
