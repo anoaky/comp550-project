@@ -18,5 +18,7 @@ if __name__ == '__main__':
     hub_model_id = 'anoaky/sbf-bart'
     os.environ['WANDB_LOG_MODEL'] = 'end'
     os.environ['WANDB_WATCH'] = 'all'
-    os.environ['WANDB_PROJECT'] = f'sbf-bart-{args.problem}'
+    os.environ['WANDB_PROJECT'] = 'COMP550'
+    args.run = f'bart-{args.problem}_{args.epochs}'
+    args.grp = 'bart'
     train(model, tokenizer, hub_model_id, args)

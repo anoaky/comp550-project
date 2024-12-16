@@ -55,11 +55,21 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     ds = ds.map(tokenize)
     return ds
 
+def wandb_setup(args):
+    proj = os.environ['WANDB_PROJECT']
+    wandb.init(
+        project=proj,
+        name=args.run,
+        tags=[args.problem, args.epochs],
+        group=args.grp,
+    )
+
 def train(model, tokenizer, hub_model_id, args):
     wandb_token = os.environ['WANDB_TOKEN']
     assert len(wandb_token) == 40
     login_succ = wandb.login(key=wandb_token, verify=True)
     assert login_succ
+    wandb_setup(args)
     feature = f'{args.problem}YN'
     out_dir = args.output_dir
     targs = TrainingArguments(output_dir=out_dir,
