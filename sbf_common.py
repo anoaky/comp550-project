@@ -9,7 +9,7 @@ from transformers import (PreTrainedTokenizer,
                           )
 from datasets import load_dataset
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 import os
 from argparse import ArgumentParser
 
@@ -38,14 +38,15 @@ def cls_metrics(ep: EvalPrediction):
     precision = precision_score(labels, preds)
     recall = recall_score(labels, preds)
     f1 = f1_score(labels, preds)
-    cm = wandb.plot.confusion_matrix(y_true=labels,
-                                     preds=preds,
-                                     class_names=['Positive', 'Negative'])
+    (tn, fp, fn, tp) = confusion_matrix(labels, preds).ravel()
     return {
         'precision': precision,
         'recall': recall,
         'f1': f1,
-        'confusion_matrix': cm,
+        'tn': tn,
+        'fp': fp,
+        'fn': fn,
+        'tp': tp,
     } 
 
 def cls_loss(outputs, labels, *, num_items_in_batch):
