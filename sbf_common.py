@@ -60,7 +60,7 @@ def wandb_setup(args):
     wandb.init(
         project=proj,
         name=args.run,
-        tags=[args.problem, str(args.epochs)],
+        tags=[args.problem],
         group=args.grp,
     )
 
@@ -81,7 +81,8 @@ def train(model, tokenizer, hub_model_id, args):
                               eval_strategy='epoch',
                               eval_on_start=False,
                               save_strategy='epoch',
-                              num_train_epochs=args.epochs,
+                              save_only_model=True,
+                              num_train_epochs=5.0,
                               bf16=torch.cuda.is_bf16_supported(),
                               torch_empty_cache_steps=10,
                               per_device_train_batch_size=8,
@@ -89,8 +90,9 @@ def train(model, tokenizer, hub_model_id, args):
                               gradient_accumulation_steps=8,
                               logging_steps=10,
                               report_to=['wandb'],
-                              push_to_hub=False,
-                              hub_model_id=hub_model_id,)
+                              push_to_hub=True,
+                              hub_model_id=hub_model_id,
+                              hub_strategy='all_checkpoints',)
     trainer = Trainer(model,
                       args=targs,
                       train_dataset=get_dataset('train', feature, tokenizer),
@@ -100,6 +102,3 @@ def train(model, tokenizer, hub_model_id, args):
     trainer.train()
     trainer.evaluate()
     trainer.predict(get_dataset('test', feature, tokenizer))
-    model.push_to_hub(hub_model_id,
-                      use_temp_dir=False,
-                      revision=f'{args.problem}_{args.epochs}')
