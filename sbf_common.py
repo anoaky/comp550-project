@@ -6,6 +6,7 @@ from transformers import (PreTrainedTokenizer,
                           )
 from datasets import load_dataset
 import numpy as np
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
@@ -20,22 +21,14 @@ tok_kwargs = {
 }
 
 def cls_metrics(ep: EvalPrediction):
-    print(ep.predictions[0].shape)
     logits = torch.tensor(ep.predictions[0])
-    print(logits.shape)
     logits = logits.squeeze(dim=1)
-    print(logits.shape)
     preds = logits.softmax(0).round().numpy().astype(np.uint8)
-    print(preds.shape)
+    print(ep.label_ids.shape)
     labels = np.rint(ep.label_ids).astype(np.uint8)
-    pos_idx = preds == 1
-    neg_idx = preds == 0
-    tp = np.count_nonzero(preds[pos_idx] == labels[pos_idx]) * 1.0
-    fp = np.count_nonzero(preds[pos_idx] != labels[pos_idx]) * 1.0
-    fn = np.count_nonzero(preds[neg_idx] != labels[neg_idx]) * 1.0
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f1 = 2 * precision * recall / (precision + recall)
+    precision = precision_score(labels, preds)
+    recall = recall_score(labels, preds)
+    f1 = f1_score(labels, preds)
     return {
         'precision': precision,
         'recall': recall,
