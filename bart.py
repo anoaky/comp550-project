@@ -52,4 +52,5 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--problem', required=True, choices=['offensive', 'sex'])
     parser.add_argument('-e', '--epochs', default=1, type=int)
     args = parser.parse_args()
+    os.environ['COMET_PROJECT_NAME'] = 'comp-550-project'
     main(args)
