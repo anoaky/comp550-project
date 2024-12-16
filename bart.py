@@ -11,10 +11,11 @@ def main(args):
                                                           num_labels=2,
                                                           ignore_mismatched_sizes=True,)
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
-    model_id = f'anoaky/sbf-bart-{args.problem}_{args.epochs}'
+    model_id = f'anoaky/sbf-bart'
     feature = f'{args.problem}YN'
-    out_dir = f"./{model_id}"
+    out_dir = f"model_dir"
     targs = TrainingArguments(output_dir=out_dir,
+                              overwrite_output_dir=True,
                               run_name=args.experiment_name,
                               do_train=True,
                               do_eval=True,
@@ -28,9 +29,8 @@ def main(args):
                               gradient_accumulation_steps=8,
                               logging_steps=50,
                               report_to=['comet_ml'],
-                              push_to_hub=True,
-                              hub_model_id=model_id,
-                              hub_strategy='end',)
+                              push_to_hub=False,
+                              hub_model_id=model_id,)
     trainer = Trainer(model,
                       args=targs,
                       train_dataset=get_dataset('train', feature, tokenizer),
@@ -39,11 +39,8 @@ def main(args):
                       compute_metrics=cls_metrics,)
     trainer.train()
     trainer.evaluate()
-    trainer.create_model_card(language='en',
-                              model_name=f'sbf-bart-{args.problem}',
-                              finetuned_from='facebook/bart-large-mnli',
-                              tasks='Text Classification',
-                              dataset='allenai/social-bias-frames')
+    model.push_to_hub(model_id,
+                      revision=f'{args.problem}_{args.epochs}')
     
 
 if __name__ == '__main__':
