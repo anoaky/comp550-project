@@ -19,6 +19,7 @@ def main(args):
                               run_name=args.experiment_name,
                               do_train=True,
                               do_eval=True,
+                              do_predict=True,
                               eval_strategy='epoch',
                               eval_on_start=False,
                               save_strategy='epoch',
@@ -40,6 +41,7 @@ def main(args):
                       compute_metrics=cls_metrics,)
     trainer.train()
     trainer.evaluate()
+    trainer.predict(get_dataset('test', feature, tokenizer))
     model.push_to_hub(model_id,
                       use_temp_dir=False,
                       revision=f'{args.problem}_{args.epochs}')
