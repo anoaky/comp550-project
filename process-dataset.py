@@ -15,6 +15,19 @@ tok_kwargs = {
     'add_special_tokens': True,
 }
 
+def gen_dataset(split: str, feature: str):
+    ds = load_dataset(HF_DS, split=split, trust_remote_code=True)
+    posts = ds.unique('post')
+    ds = ds.select_columns(['post', feature]).map(lambda x: {'post': x['post'], feature: float(x[feature]) if len(x[feature]) > 0 else 0.0})
+    def collate(post):
+        for i in range(ds.num_rows):
+            if ds[i]['post'] == post:
+                yield ds[i][feature]
+    def gen():
+        for post in posts:
+            yield {'post': post, feature: [v for v in collate(post)]}
+    return Dataset.from_generator(gen)
+    
 def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     def remove_blanks(row):
         if len(row[feature]) == 0:
@@ -46,9 +59,10 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('-f', '--feature', required=True, choices=['offensiveYN', 'sexYN'], type=str)
+    parser.add_argument('-s', '--split', required=True, choices=['train', 'validation', 'test'], type=str)
     args = parser.parse_args()
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
-    train_set = get_dataset('train', args.feature, tokenizer)
-    train_set.push_to_hub('anoaky/sbf-bart-tokenized',
+    new_ds = gen_dataset(args.split, args.feature)
+    new_ds.push_to_hub('anoaky/sbf-collated',
                           config_name=args.feature,
-                          split='train')
+                          split=args.split)
