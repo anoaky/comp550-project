@@ -23,7 +23,7 @@ tok_kwargs = {
 
 def cls_metrics(ep: EvalPrediction):
     (logits, _), labels = ep
-    preds = logits.softmax(-1).argmax(-1).numpy().astype(np.uint8)
+    preds = torch.tensor(logits).softmax(-1).argmax(-1).numpy().astype(np.uint8)
     precision = precision_score(labels, preds)
     recall = recall_score(labels, preds)
     f1 = f1_score(labels, preds)
