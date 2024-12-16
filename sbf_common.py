@@ -39,7 +39,7 @@ def cls_metrics(ep: EvalPrediction):
 def cls_loss(outputs, labels, *, num_items_in_batch):
     if isinstance(outputs, dict) and "loss" not in outputs:
         if labels is not None:
-            logits = outputs["logits"].squeeze()
+            logits = outputs["logits"]
             bce = torch.nn.BCEWithLogitsLoss()
             return bce(logits, labels)
         
