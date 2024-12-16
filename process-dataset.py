@@ -1,20 +1,8 @@
-import torch
-from transformers import PreTrainedTokenizer, BartTokenizer
 from datasets import Dataset, load_dataset
 from argparse import ArgumentParser
-import pandas as pd
 
 MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
-
-tok_kwargs = {
-    'padding': 'max_length',
-    'max_length': MAX_LENGTH,
-    'truncation': True,
-    'return_tensors': 'pt',
-    'return_attention_mask': True,
-    'add_special_tokens': True,
-}
 
 def sanity_check(df, ds, feature):
     for i in range(len(df)):
@@ -34,7 +22,6 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--feature', required=True, choices=['offensiveYN', 'sexYN', 'intentYN'], type=str)
     parser.add_argument('-s', '--split', required=True, choices=['train', 'validation', 'test'], type=str)
     args = parser.parse_args()
-    tokenizer = BartTokenizer.from_pretrained('facebook/bart-base')
     new_ds = get_dataset(args.split, args.feature)
     new_ds.save_to_disk(f'data/{args.feature}/{args.split}')
     new_ds = Dataset.load_from_disk(f'data/{args.feature}/{args.split}')

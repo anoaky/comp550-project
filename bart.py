@@ -1,6 +1,7 @@
 from transformers import BartTokenizer, BartForSequenceClassification
 from argparse import ArgumentParser
 from sbf_common import train
+import os
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -15,4 +16,7 @@ if __name__ == '__main__':
                                                           ignore_mismatched_sizes=True,)
     tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
     hub_model_id = 'anoaky/sbf-bart'
+    os.environ['WANDB_LOG_MODEL'] = 'end'
+    os.environ['WANDB_WATCH'] = 'all'
+    os.environ['WANDB_PROJECT'] = f'sbf-bart-{args.problem}'
     train(model, tokenizer, hub_model_id, args)

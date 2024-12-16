@@ -6,7 +6,6 @@ from transformers import (PreTrainedTokenizer,
                           Trainer,
                           TrainingArguments,
                           )
-from transformers.integrations import NeptuneCallback
 from datasets import load_dataset
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score
@@ -57,8 +56,6 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
 def train(model, tokenizer, hub_model_id, args):
     feature = f'{args.problem}YN'
     out_dir = args.output_dir
-    npt_cb = NeptuneCallback(project='COMP550',
-                             name=args.experiment_name)
     targs = TrainingArguments(output_dir=out_dir,
                               overwrite_output_dir=True,
                               run_name=args.experiment_name,
@@ -74,12 +71,11 @@ def train(model, tokenizer, hub_model_id, args):
                               per_device_train_batch_size=8,
                               per_device_eval_batch_size=8,
                               gradient_accumulation_steps=8,
-                              logging_steps=50,
-                              report_to=[],
+                              logging_steps=10,
+                              report_to=['wandb'],
                               push_to_hub=False,
                               hub_model_id=hub_model_id,)
     trainer = Trainer(model,
-                      callbacks=[npt_cb],
                       args=targs,
                       train_dataset=get_dataset('train', feature, tokenizer),
                       eval_dataset=get_dataset('validation', feature, tokenizer),
