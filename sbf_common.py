@@ -1,5 +1,6 @@
 import torch
 import torch.optim
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 from transformers import (PreTrainedTokenizer,
                           EvalPrediction
@@ -36,8 +37,7 @@ def cls_loss(outputs, labels, *, num_items_in_batch):
     if isinstance(outputs, dict) and "loss" not in outputs:
         if labels is not None:
             logits = outputs["logits"]
-            loss_fn = torch.nn.CrossEntropyLoss()
-            return loss_fn(logits, labels)
+            return F.cross_entropy(logits, labels)
         
 def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     ds = load_dataset('anoaky/sbf-collated', feature, split=split)
