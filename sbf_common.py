@@ -61,8 +61,8 @@ def wandb_setup(args):
     wandb.init(
         project=proj,
         name=args.run,
-        tags=[args.problem],
-        group=args.grp,
+        tags=[args.tag],
+        group=args.problem,
     )
 
 def parse_args():

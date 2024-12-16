@@ -12,5 +12,5 @@ if __name__ == '__main__':
     hub_model_id = f'anoaky/sbf-bert-{args.problem}'
     
     args.run = f'bert-{args.problem}'
-    args.grp = 'bert'
+    args.tag = 'bert'
     train(model, tokenizer, hub_model_id, args)
