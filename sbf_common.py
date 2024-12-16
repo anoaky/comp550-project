@@ -39,7 +39,7 @@ def cls_metrics(ep: EvalPrediction):
 def cls_loss(outputs, labels, *, num_items_in_batch):
     if isinstance(outputs, dict) and "loss" not in outputs:
         if labels is not None:
-            logits = outputs["logits"]
+            logits = outputs["logits"].squeeze(dim=1)
             bce = torch.nn.BCEWithLogitsLoss()
             return bce(logits, labels)
         
@@ -47,7 +47,7 @@ def get_dataset(split: str, feature: str, tokenizer: PreTrainedTokenizer):
     ds = load_dataset('anoaky/sbf-collated', feature, split=split)
     def tokenize(x):
         post = tokenizer(x['post'], **tok_kwargs)
-        label = torch.tensor(x[feature]).round().item()
+        label = torch.tensor(x[feature]).ceil().item()
         return {
             'input_ids': post.input_ids.view(-1),
             'attention_mask': post.attention_mask.view(-1),
