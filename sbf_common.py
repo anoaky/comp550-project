@@ -60,7 +60,7 @@ def wandb_setup(args):
     wandb.init(
         project=proj,
         name=args.run,
-        tags=[args.problem, args.epochs],
+        tags=[args.problem, str(args.epochs)],
         group=args.grp,
     )
 
