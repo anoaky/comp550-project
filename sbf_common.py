@@ -13,6 +13,9 @@ from sklearn.metrics import precision_score, recall_score, f1_score, confusion_m
 import os
 from argparse import ArgumentParser
 
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
 
@@ -107,8 +110,10 @@ def train(model, tokenizer, hub_model_id, args):
                               save_strategy='epoch',
                               save_only_model=True,
                               num_train_epochs=float(args.epochs),
-                              bf16=torch.cuda.is_bf16_supported(),
-                              torch_empty_cache_steps=10,
+                              dataloader_prefetch_factor=4,
+                              dataloader_num_workers=4,
+                              torch_empty_cache_steps=75,
+                              ddp_backend='nccl',
                               per_device_train_batch_size=8,
                               per_device_eval_batch_size=8,
                               gradient_accumulation_steps=8,

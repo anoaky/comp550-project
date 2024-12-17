@@ -4,6 +4,6 @@ __pycache__/
 output/
 data/
 sky.yaml
-paperspace.yaml
+*.yaml
 wandb/
 .test/
