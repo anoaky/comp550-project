@@ -106,6 +106,7 @@ def train(model, tokenizer, hub_model_id, args):
                               do_eval=True,
                               do_predict=True,
                               eval_strategy='steps',
+                              eval_steps=0.25,
                               eval_on_start=True,
                               save_strategy='epoch',
                               save_only_model=True,
