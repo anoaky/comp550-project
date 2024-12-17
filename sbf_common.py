@@ -9,7 +9,7 @@ from transformers import (PreTrainedTokenizer,
                           )
 from datasets import load_dataset
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.metrics import precision_score, recall_score, f1_score
 import os
 from argparse import ArgumentParser
 
@@ -41,15 +41,10 @@ def cls_metrics(ep: EvalPrediction):
     precision = precision_score(labels, preds)
     recall = recall_score(labels, preds)
     f1 = f1_score(labels, preds)
-    (tn, fp, fn, tp) = confusion_matrix(labels, preds).ravel()
     return {
         'precision': precision,
         'recall': recall,
         'f1': f1,
-        'tn': tn,
-        'fp': fp,
-        'fn': fn,
-        'tp': tp,
     } 
 
 def cls_loss(outputs, labels, *, num_items_in_batch):
@@ -105,21 +100,20 @@ def train(model, tokenizer, hub_model_id, args):
                               do_train=True,
                               do_eval=True,
                               do_predict=True,
-                              eval_strategy='steps',
-                              eval_steps=0.25,
+                              eval_strategy='epoch',
                               eval_on_start=True,
                               save_strategy='epoch',
                               save_only_model=True,
                               tf32=True,
                               bf16=True,
                               num_train_epochs=float(args.epochs),
-                              dataloader_prefetch_factor=4,
-                              dataloader_num_workers=4,
+                              dataloader_prefetch_factor=2,
+                              dataloader_num_workers=2,
                               torch_empty_cache_steps=75,
                               auto_find_batch_size=True,
-                              per_device_train_batch_size=32,
-                              per_device_eval_batch_size=32,
-                              gradient_accumulation_steps=1,
+                              per_device_train_batch_size=8,
+                              per_device_eval_batch_size=8,
+                              gradient_accumulation_steps=8,
                               logging_steps=10,
                               report_to=['wandb'],
                               push_to_hub=True,
