@@ -115,7 +115,6 @@ def train(model, tokenizer, hub_model_id, args):
                               dataloader_prefetch_factor=4,
                               dataloader_num_workers=4,
                               torch_empty_cache_steps=75,
-                              ddp_backend='nccl',
                               per_device_train_batch_size=16,
                               per_device_eval_batch_size=16,
                               gradient_accumulation_steps=4,
