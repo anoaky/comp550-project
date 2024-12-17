@@ -14,6 +14,7 @@ import os
 from argparse import ArgumentParser
 
 torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.enabled = True
 torch.backends.cudnn.allow_tf32 = True
 
 MAX_LENGTH = 256
@@ -87,6 +88,7 @@ def parse_args():
     return args
 
 def train(model, tokenizer, hub_model_id, args):
+    torch.set_float32_matmul_precision('medium')
     wandb_token = os.environ['WANDB_TOKEN']
     assert len(wandb_token) == 40
     login_succ = wandb.login(key=wandb_token, verify=True)
@@ -101,6 +103,7 @@ def train(model, tokenizer, hub_model_id, args):
                               do_eval=True,
                               do_predict=True,
                               eval_strategy='epoch',
+                              logging_strategy='epoch',
                               eval_on_start=True,
                               save_strategy='epoch',
                               save_only_model=True,
@@ -114,7 +117,6 @@ def train(model, tokenizer, hub_model_id, args):
                               per_device_train_batch_size=8,
                               per_device_eval_batch_size=8,
                               gradient_accumulation_steps=8,
-                              logging_steps=10,
                               report_to=['wandb'],
                               push_to_hub=True,
                               hub_model_id=hub_model_id,
