@@ -118,7 +118,7 @@ def train(model, tokenizer, hub_model_id, args):
                               auto_find_batch_size=True,
                               per_device_train_batch_size=16,
                               per_device_eval_batch_size=16,
-                              gradient_accumulation_steps=4,
+                              gradient_accumulation_steps=1,
                               logging_steps=10,
                               report_to=['wandb'],
                               push_to_hub=True,
