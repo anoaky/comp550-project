@@ -105,7 +105,7 @@ def train(model, tokenizer, hub_model_id, args):
                               eval_on_start=False,
                               save_strategy='epoch',
                               save_only_model=True,
-                              num_train_epochs=5.0,
+                              num_train_epochs=2.0,
                               bf16=torch.cuda.is_bf16_supported(),
                               torch_empty_cache_steps=10,
                               per_device_train_batch_size=8,
