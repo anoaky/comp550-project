@@ -109,6 +109,7 @@ def train(model, tokenizer, hub_model_id, args):
                               eval_on_start=True,
                               save_strategy='epoch',
                               save_only_model=True,
+                              tf32=True,
                               num_train_epochs=float(args.epochs),
                               dataloader_prefetch_factor=4,
                               dataloader_num_workers=4,
