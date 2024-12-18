@@ -69,9 +69,9 @@ def tokenize_ds(tokenizer, split):
         tok_inputs = tokenizer(row['post'], **tok_kwargs)
         tok_outputs = tokenizer(row['targetStereotype'], **tok_kwargs)
         return {
-            'input_ids': tok_inputs['input_ids'],
-            'attention_mask': tok_inputs['attention_mask'],
-            'labels': tok_outputs['input_ids'],
+            'input_ids': tok_inputs['input_ids'].view(-1),
+            'attention_mask': tok_inputs['attention_mask'].view(-1),
+            'labels': tok_outputs['input_ids'].view(-1),
         }
     ds = ds.map(helper, remove_columns=['post', 'targetStereotype'])
     return ds
