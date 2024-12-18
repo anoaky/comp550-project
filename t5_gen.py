@@ -9,7 +9,7 @@ import torch
 import numpy as np
 from argparse import ArgumentParser
 
-MAX_LENGTH = 512
+MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
 
 tok_kwargs = {
@@ -106,8 +106,7 @@ def train(args):
                               dataloader_prefetch_factor=2,
                               dataloader_num_workers=2,
                               torch_empty_cache_steps=10,
-                              per_device_train_batch_size=4,
-                              per_device_eval_batch_size=4,
+                              auto_find_batch_size=True,
                               gradient_accumulation_steps=8,
                               report_to=['wandb'],
                               push_to_hub=True,
