@@ -119,7 +119,6 @@ def train(args):
                         train_dataset=train_ds,
                         eval_dataset=val_ds,
                         data_collator=collator,
-                        compute_loss_func=cls_loss,
                         compute_metrics=cls_metrics,)
     trainer.train()
 
