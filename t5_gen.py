@@ -2,7 +2,7 @@ import wandb
 import torch
 import torch.nn.functional as F
 from nltk.translate.bleu_score import corpus_bleu
-from transformers import T5ForConditionalGeneration, T5Tokenizer, DataCollatorForSeq2Seq, TrainingArguments, Trainer
+from transformers import T5ForConditionalGeneration, T5Tokenizer, TrainingArguments, Trainer
 from datasets import load_dataset
 import os
 import torch
@@ -13,6 +13,8 @@ MAX_LENGTH = 256
 HF_DS = 'allenai/social_bias_frames'
 
 tok_kwargs = {
+    'padding': 'max_length',
+    'max_length': MAX_LENGTH,
     'truncation': True,
     'return_tensors': 'pt',
     'return_attention_mask': True,
@@ -85,13 +87,12 @@ def train(args):
     out_dir = args.output_dir
     tokenizer = T5Tokenizer.from_pretrained('google/t5-v1_1-base')
     model = T5ForConditionalGeneration.from_pretrained('google/t5-v1_1-base')
-    collator = DataCollatorForSeq2Seq(tokenizer, model, padding='max_length', max_length=MAX_LENGTH)
     train_ds = tokenize_ds(tokenizer, 'train')
     val_ds = tokenize_ds(tokenizer, 'validation')
     cls_metrics = GenMetrics(tokenizer)
     targs = TrainingArguments(output_dir=out_dir,
                               overwrite_output_dir=True,
-                              run_name='sbf-t5-gen',
+                              run_name='t5-gen',
                               do_train=True,
                               do_eval=True,
                               do_predict=True,
@@ -116,7 +117,6 @@ def train(args):
                         args=targs,
                         train_dataset=train_ds,
                         eval_dataset=val_ds,
-                        data_collator=collator,
                         compute_metrics=cls_metrics,)
     trainer.train()
 
