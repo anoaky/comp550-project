@@ -63,7 +63,7 @@ def cls_loss(outputs, labels, *, num_items_in_batch):
             return outputs['loss']
 
 def tokenize_ds(tokenizer, split):
-    ds = load_dataset(HF_DS, split=split)
+    ds = load_dataset(HF_DS, split=split, trust_remote_code=True)
     ds = ds.select_columns(['post', 'targetStereotype'])
     def helper(row):
         tok_inputs = tokenizer(row['post'], **tok_kwargs)
