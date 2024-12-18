@@ -48,7 +48,7 @@ def wandb_setup():
     proj = 'COMP550'
     wandb.init(
         project=proj,
-        name='sbf-t5-gen',
+        name='t5-gen',
         tags=['t5', 'gen'],
         group='gen',
     )
