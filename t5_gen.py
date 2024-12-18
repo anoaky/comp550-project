@@ -83,8 +83,8 @@ def train(args):
     assert login_succ
     wandb_setup()
     out_dir = args.output_dir
-    tokenizer = T5Tokenizer.from_pretrained('google/t5-v1_1-large')
-    model = T5ForConditionalGeneration.from_pretrained('google/t5-v1_1-large')
+    tokenizer = T5Tokenizer.from_pretrained('google/t5-v1_1-base')
+    model = T5ForConditionalGeneration.from_pretrained('google/t5-v1_1-base')
     collator = DataCollatorForSeq2Seq(tokenizer, model, padding='max_length', max_length=MAX_LENGTH)
     train_ds = tokenize_ds(tokenizer, 'train')
     val_ds = tokenize_ds(tokenizer, 'validation')
