@@ -10,3 +10,4 @@ huggingface_hub
 accelerate
 pandas
 scikit-learn
+nltk

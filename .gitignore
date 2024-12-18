@@ -7,3 +7,5 @@ sky.yaml
 *.yaml
 wandb/
 .test/
+*.bib
+*.png

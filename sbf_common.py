@@ -49,10 +49,13 @@ def cls_metrics(ep: EvalPrediction):
     } 
 
 def cls_loss(outputs, labels, *, num_items_in_batch):
-    if isinstance(outputs, dict) and "loss" not in outputs:
-        if labels is not None:
-            logits = outputs["logits"]
-            return F.cross_entropy(logits, labels)
+    if isinstance(outputs, dict):
+        if "loss" not in outputs:
+            if labels is not None:
+                logits = outputs["logits"]
+                return F.cross_entropy(logits, labels)
+        else:
+            return outputs['loss']
         
 def get_dataset(split: str, label: str, tokenizer: PreTrainedTokenizer):
     ds = load_dataset('anoaky/sbf-collated', label, split=split)
@@ -69,7 +72,7 @@ def get_dataset(split: str, label: str, tokenizer: PreTrainedTokenizer):
 
 def wandb_setup(args):
     os.environ['WANDB_LOG_MODEL'] = 'end'
-    os.environ['WANDB_WATCH'] = 'all'
+    os.environ['WANDB_WATCH'] = 'false'
     os.environ['WANDB_PROJECT'] = 'COMP550'
     proj = 'COMP550'
     wandb.init(
