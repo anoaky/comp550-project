@@ -131,5 +131,4 @@ def train(model, tokenizer, hub_model_id, args):
                       compute_loss_func=cls_loss,
                       compute_metrics=cls_metrics,)
     trainer.train()
-    trainer.evaluate()
     trainer.predict(get_dataset('test', label, tokenizer))
